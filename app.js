@@ -550,7 +550,8 @@ function examList(){
   $app.innerHTML = `<h1>過去問</h1>` + years.map(y=>`<h2>${y}年度</h2><div class="list">`+
     EXAMS.filter(e=>e.year===y).map(e=>{
       const pts = e.questions.reduce((a,q)=>a+q.points,0);
-      return `<a class="item" href="#/exam/${e.id}"><div class="main"><b>${e.form}問題</b><div class="sub">${esc(e.era||"")}・大問${e.dai.length}・設問${e.questions.length}・${pts}点</div></div><span>›</span></a>`;
+      const lk = lockOf(e.id,null);
+      return `<a class="item" href="#/exam/${e.id}"><div class="main"><b>${e.form}問題</b>${lk? ` <span class="lockmark">🔒 ${esc(untilText(lk))}まで利用できません</span>`:""}<div class="sub">${esc(e.era||"")}・大問${e.dai.length}・設問${e.questions.length}・${pts}点</div></div><span>›</span></a>`;
     }).join("")+`</div>`).join("");
 }
 
@@ -570,7 +571,7 @@ function examPage(id){
         <div class="muted">${esc(d.type||"")}${d.theme? "・"+esc(d.theme):""}・${pts}点${d.difficulty&&d.difficulty["難易度"]? "・難易度"+d.difficulty["難易度"]:""}</div>
         ${last? `<div class="muted">前回 ${last.score}/${last.points}点（${last.at.slice(0,10)}）</div>`:""}</div></div>
         ${d.note? `<p class="muted" style="margin:.4em 0">${esc(d.note)}</p>`:""}
-        <div class="row"><a class="btn primary" href="#/solve/${d.id}">過去問演習</a><a class="btn" href="#/practice/${d.id}">過去問練習</a><a class="btn" href="#/read/${d.id}">精読</a></div></div>`;
+        ${lockOf(e.id,d.id)? `<p class="lockmark">🔒 ${esc(untilText(lockOf(e.id,d.id)))}まで利用できません</p>` : `<div class="row"><a class="btn primary" href="#/solve/${d.id}">過去問演習</a><a class="btn" href="#/practice/${d.id}">過去問練習</a><a class="btn" href="#/read/${d.id}">精読</a></div>`}</div>`;
     }).join("")+`</div>`;
 }
 
@@ -825,7 +826,8 @@ function route(){
   if (SYNC.enabled && !SYNC.auth){ document.getElementById("backBtn").style.visibility = "hidden"; return loginScreen(); }
   if (!a) return home();
   if (a==="exams") return examList();
-  if (a==="exam") return examPage(b);
+  if (a==="exam") return lockOf(b,null)? lockedPage(lockOf(b,null), b) : examPage(b);
+  if (a==="solve" || a==="practice" || a==="read"){ const d = DAI[b], lk = d && lockOf(d.exam, d.id); if (lk) return lockedPage(lk, d.exam, d); }
   if (a==="solve") return solve(b);
   if (a==="practice") return solve(b, "practice");
   if (a==="set") return solveSet();
@@ -843,6 +845,12 @@ let lastPath = null;
 window.addEventListener("hashchange", ()=>{ const p=location.hash.split("?")[0]; if (p!==lastPath) window.scrollTo(0,0); lastPath=p; render(); });
 
 function startSet(title, ids, kind){
+  const open = ids.filter(id=>!(Q[id] && lockOf(Q[id].exam, Q[id].dai)));
+  if (open.length < ids.length){
+    if (!open.length){ alert("この問題は、いま利用できません（ロック中）。"); return; }
+    alert("ロック中の問題 "+(ids.length-open.length)+"問 をのぞいて始めます。");
+  }
+  ids = open;
   if (!ids.length) { alert("問題がありません"); return; }
   newSession(kind||"mix", title, ids); go("#/set/"+SES.id);
 }
@@ -991,7 +999,7 @@ async function flush(){
     for (let guard=0; guard<60 && pending() && cloud(); guard++){
       const o = ST.out, a = o.a.slice(0,200), v = o.v.slice(0,50), e = o.e.slice(0,100);
       const r = await SYNC.api({action:"submitBatch", token:SYNC.auth.token, attempts:a, views:v, events:e});
-      if (r.result==="success"){ o.a.splice(0,a.length); o.v.splice(0,v.length); o.e.splice(0,e.length); save(); }
+      if (r.result==="success"){ o.a.splice(0,a.length); o.v.splice(0,v.length); o.e.splice(0,e.length); save(); setLocks(r.locks); if (r.saved && r.saved.locked>0) toast("ロック中のため、一部の記録は保存されませんでした。"); }
       else if (r.message==="invalid_token"){ flushing=false; logout("ログインの有効期限が切れました。もう一度ログインしてください。"); return; }
       else if (r.message==="bad_item" || r.message==="bad_size"){ // 送れない記録が詰まらないよう、別に退避する
         ST.dead = (ST.dead||[]).concat({a,v,e,at:new Date().toISOString()}).slice(-20);
@@ -1017,6 +1025,26 @@ function logout(msg){
   SYNC.setAuth(null); SES = null; const s = ST.settings; loadStore(s); applySettings();
   loginMsg = msg || ""; render();
 }
+// ---- 校舎ごとのロック(サーバーが判定。ここは表示用) ----
+function locksNow(){ const a = SYNC.auth; if (!a || !Array.isArray(a.locks)) return []; const now = Date.now(); return a.locks.filter(l=>new Date(l.until).getTime() > now); }
+function lockOf(exam, dai){ return locksNow().find(l=>(!l.examId || l.examId===exam) && (!l.sectionId || l.sectionId===dai)) || null; }
+function untilText(l){ return new Date(l.until).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+function setLocks(ls, repaint){
+  if (!SYNC.auth || !Array.isArray(ls)) return;
+  if (JSON.stringify(ls) === JSON.stringify(SYNC.auth.locks||[])) return;
+  SYNC.setAuth(Object.assign({}, SYNC.auth, {locks:ls}));
+  if (repaint && !/^#\/(solve|practice|set)\b/.test(location.hash)) render(); // 解答中は画面を作り直さない
+}
+function lockedPage(lk, exam, dai){
+  setTitle("ロック中");
+  const what = dai? daiLabel(dai) : lk.sectionId? "この大問" : lk.examId? examLabel(lk.examId) : "この問題";
+  $app.innerHTML = `<h1>🔒 いまは利用できません</h1><p>${esc(what)}は、<b>${esc(untilText(lk))}</b>まで利用できません。</p>${lk.note? `<p class="muted">${esc(lk.note)}</p>`:""}
+    <div class="row"><a class="btn primary" href="#/exams">過去問の一覧へ</a><a class="btn" href="#/">ホームへ</a></div>`;
+}
+function toast(t){
+  const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.append(d);
+  setTimeout(()=>d.remove(), 9000);
+}
 let loginMsg = "", importHidden = false;
 const LOGIN_ERR = {bad_login:"生徒番号または合言葉が違います。", too_many_attempts:"失敗が続いたため、しばらく使えません。時間をおくか、先生に連絡してください。", network:"通信できません。電波の良い場所でやり直してください。"};
 function loginScreen(){
@@ -1037,7 +1065,7 @@ $app.addEventListener("submit", async e=>{
   btn.disabled = true; msg.textContent = "確認しています…";
   const r = await SYNC.api({action:"login", number:num, passcode:pw});
   if (r.result==="success"){
-    const prev = ST.settings; SYNC.setAuth({token:r.token, student:r.student}); loadStore(prev); applySettings(); SES = null; loginMsg = "";
+    const prev = ST.settings; SYNC.setAuth({token:r.token, student:r.student, locks:r.locks||[]}); loadStore(prev); applySettings(); SES = null; loginMsg = "";
     render(); flush(); if (!ST.attempts.length && !legacyCount()) restoreFromServer();
   } else { msg.textContent = LOGIN_ERR[r.message] || "ログインできませんでした。"; btn.disabled = false; }
 });
@@ -1077,7 +1105,7 @@ if (SYNC.enabled){
   document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="hidden") flush(); });
   if (SYNC.auth){
     flush();
-    SYNC.api({action:"me", token:SYNC.auth.token}).then(r=>{ if (r.result==="error" && r.message==="invalid_token") logout("ログインの有効期限が切れました。もう一度ログインしてください。"); });
+    SYNC.api({action:"me", token:SYNC.auth.token}).then(r=>{ if (r.result==="error" && r.message==="invalid_token") logout("ログインの有効期限が切れました。もう一度ログインしてください。"); else if (r.result==="success") setLocks(r.locks, true); });
   }
 }
 
