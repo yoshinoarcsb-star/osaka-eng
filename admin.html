@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>管理コンソール</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--fg:#1c2733;--muted:#5c6b7a;--line:#d9dee5;--ac:#17607d;--acf:#fff;--ok:#2c7a57;--okb:#dcf1e6;--ng:#b0392e;--ngb:#f8dedb;--wn:#8a5a00;--wnb:#fbefd2}
+@media (prefers-color-scheme:dark){:root{--bg:#12181f;--panel:#1b242e;--fg:#e6ebf0;--muted:#9aa8b6;--line:#2e3a47;--ac:#6cc0dd;--acf:#10212a;--ok:#6fcf9f;--okb:#1b3a2c;--ng:#f08a80;--ngb:#47201c;--wn:#e8c06a;--wnb:#3b3015}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 "Hiragino Sans","Yu Gothic",sans-serif}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;flex:1}
+main{max-width:1080px;margin:0 auto;padding:16px 16px 80px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+h2{font-size:17px;margin:0 0 10px}
+.m{color:var(--muted);font-size:13px}
+label{display:block;font-weight:700;font-size:13px;margin:12px 0 4px}
+input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);max-width:100%}
+input[type=text],input[type=password],textarea{width:100%}
+textarea{min-height:150px;font-family:ui-monospace,Consolas,monospace;font-size:13.5px}
+button{font:inherit;font-weight:700;padding:8px 14px;border:0;border-radius:8px;background:var(--ac);color:var(--acf);cursor:pointer}
+button.s{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button.d{background:var(--ng);color:#fff}
+button.sm{padding:3px 9px;font-size:12.5px;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+nav button{background:transparent;color:var(--fg);border:1px solid var(--line)}
+nav button.on{background:var(--ac);color:var(--acf);border-color:var(--ac)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle;white-space:nowrap}
+th{font-size:12.5px;color:var(--muted)}
+td.w{white-space:normal}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:700}
+.t-ok{background:var(--okb);color:var(--ok)}.t-ng{background:var(--ngb);color:var(--ng)}.t-wn{background:var(--wnb);color:var(--wn)}
+.msg{margin:10px 0;padding:8px 12px;border-radius:8px;font-size:14px}
+.msg.ok{background:var(--okb);color:var(--ok)}.msg.ng{background:var(--ngb);color:var(--ng)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg);max-width:440px;width:calc(100% - 32px);padding:20px}
+dialog.wide{max-width:780px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.big{font:700 30px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.12em;text-align:center;padding:12px;margin:12px 0;background:var(--bg);border-radius:8px;word-break:break-all}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+.hide{display:none!important}
+#login{max-width:420px;margin:60px auto}
+.bar2{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:10px}.bar2 label{margin:0}
+.rate{font-weight:700}.lo{color:var(--ng)}.mid{color:var(--wn)}.hi{color:var(--ok)}
+@media print{header,nav,.noprint{display:none!important}}
+</style></head><body>
+<header><h1>管理コンソール</h1><span class="m" id="who"></span><button class="s sm hide" id="out">ログアウト</button></header>
+<main>
+<section id="login" class="box">
+  <h2>ログイン</h2>
+  <p class="m">管理者または講師の合言葉を入力してください。この画面を閉じると、合言葉は消えます（保存しません）。</p>
+  <label for="sec">合言葉</label><input id="sec" type="password" autocomplete="off">
+  <div class="row"><button id="go">ログイン</button></div>
+  <div id="lmsg"></div>
+</section>
+
+<section id="app" class="hide">
+  <nav id="tabs"></nav>
+
+  <div id="p-students" class="box">
+    <h2>生徒</h2>
+    <div class="bar">
+      <select id="fc"></select><select id="fg"><option value="">全学年</option><option>中1</option><option>中2</option><option>中3</option><option>卒業</option></select>
+      <select id="fs"><option value="">すべての状態</option><option value="active">有効</option><option value="inactive">無効</option><option value="locked">ロック中</option></select>
+      <input id="fq" type="text" placeholder="番号・氏名で検索" style="width:200px">
+      <button class="s sm" id="reload">更新</button><span class="m" id="cnt"></span>
+    </div>
+    <div id="smsg"></div>
+    <div class="tw"><table><thead><tr><th>番号</th><th>氏名</th><th>校舎</th><th>学年</th><th>状態</th><th>最終ログイン</th><th>操作</th></tr></thead><tbody id="stb"></tbody></table></div>
+  </div>
+
+  <div id="p-add" class="box hide">
+    <h2>生徒の一括登録</h2>
+    <p class="m">1行に1人。「番号,氏名」または「番号,氏名,合言葉」の形です（区切りは , か タブ）。表計算ソフトからそのまま貼れます。合言葉を省くと、4桁の数字を自動で作ります。</p>
+    <p class="m">番号は、校舎(1桁)＋学年番号(2桁)＋連番(3桁)の6桁です。今年度の学年番号は <b id="cohorts"></b> です。例：<code id="ex1"></code>（住道加納校・中1の1番）</p>
+    <textarea id="addta" placeholder=""></textarea>
+    <div class="row"><button class="s" id="prev">内容を確認</button></div>
+    <div id="addprev"></div>
+    <div id="addres"></div>
+  </div>
+
+  <div id="p-staff" class="box hide">
+    <h2>講師用の合言葉</h2>
+    <p class="m">校舎ごとに発行します。講師は、この画面にその合言葉でログインすると、自校舎の生徒だけを見られ、合言葉の再発行とロック解除ができます。発行した合言葉は、その場で一度しか表示されません。</p>
+    <div class="bar"><select id="sc"></select><input id="sl" type="text" placeholder="メモ（例：山田先生）" style="width:220px"><button id="issue">発行する</button></div>
+    <div id="stmsg"></div>
+    <div class="tw"><table><thead><tr><th>ID</th><th>校舎</th><th>メモ</th><th>状態</th><th>発行日</th><th></th></tr></thead><tbody id="sttb"></tbody></table></div>
+  </div>
+
+
+  <div id="p-report" class="box hide">
+    <h2>学習状況</h2>
+    <p class="m">正答率は「設問ごとの最初の解答」だけで数えます（やり直して正解にした分は含みません）。苦手な文法は、3問以上解いて正答率が70%未満のものを、低い順に最大3つ出します。</p>
+    <div class="bar"><select id="rc"></select><select id="rg"><option value="">全学年</option><option value="1">中1</option><option value="2">中2</option><option value="3">中3</option></select>
+      <label style="margin:0;font-weight:400"><input type="checkbox" id="rinact"> 7日以上、学習していない</label>
+      <input id="rq" type="text" placeholder="番号・氏名で検索" style="width:180px"><button class="s sm" id="rreload">更新</button><button class="s sm" id="rcamp">この条件の文法別まとめ</button><span class="m" id="rcnt"></span></div>
+    <div id="rmsg"></div>
+    <div class="tw"><table><thead><tr><th>番号</th><th>氏名</th><th>校舎</th><th>学年</th><th>最終の学習</th><th>7日の解答</th><th>解いた設問</th><th>正答率</th><th>苦手な文法</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
+  </div>
+
+  <div id="p-lock" class="box hide">
+    <h2>ロック</h2>
+    <p class="m">指定した校舎・試験・大問を、期間のあいだ、学習アプリで開けなくし、解答を記録しません（サーバーの時刻で判定）。問題の中身を隠すものではありません。</p>
+    <div id="lockform">
+      <div class="bar2">
+        <label>校舎<br><select id="lc"></select></label>
+        <label>試験<br><select id="le"></select></label>
+        <label>大問<br><select id="ls"></select></label>
+        <label>開始<br><input type="datetime-local" id="lst"></label>
+        <label>終了<br><input type="datetime-local" id="len"></label>
+        <label>メモ<br><input type="text" id="lnote" maxlength="60" style="width:180px"></label>
+        <button id="lsave">ロックする</button>
+      </div>
+    </div>
+    <div id="lmsg2"></div>
+    <div class="tw"><table><thead><tr><th>ID</th><th>対象</th><th>期間</th><th>状態</th><th>メモ</th><th></th></tr></thead><tbody id="lktb"></tbody></table></div>
+  </div>
+
+  <div id="p-log" class="box hide">
+    <h2>操作ログ</h2>
+    <div class="bar"><button class="s sm" id="logreload">更新</button><span class="m">新しい順に最大200件</span></div>
+    <div class="tw"><table><thead><tr><th>日時</th><th>権限</th><th>校舎</th><th>操作</th><th>対象</th></tr></thead><tbody id="ltb"></tbody></table></div>
+  </div>
+
+  <div id="p-exp" class="box hide">
+    <h2>書き出し（バックアップ）</h2>
+    <p class="m">無料プランは自動バックアップがないため、週に1回の保存をおすすめします。CSVで保存します。合言葉やトークンは含まれません。</p>
+    <div class="bar" id="expbtns"></div>
+    <div id="expmsg"></div>
+  </div>
+</section>
+</main>
+
+<dialog id="dlg"><div id="dbody"></div><div class="row" id="dbtn"></div></dialog>
+
+<script>
+/* 接続設定（公開用キーのみ。config.js と同じ値） */
+window.OSAKA_CONFIG = { apiUrl: "https://dhzdygqopmnjbggfyxmd.supabase.co/functions/v1/clever-api", apiKey: "sb_publishable_knhDKrqz3P33aPT8curHsA_qTbVhyjU" };
+</script>
+<script>
+const CFG=window.OSAKA_CONFIG||{};
+const CAMPUS={1:"住道加納校",2:"鴻池駅前校",3:"鶴見徳庵校",4:"都島中通校",5:"寝屋川音羽校",6:"大東三箇校",7:"野崎駅前校",8:"阿倍野校"};
+const ERR={forbidden:"この操作はできません（合言葉の違い、または一時的なロックの可能性があります）",not_found:"対象が見つかりません",bad_student:"番号か氏名の形式が正しくありません",bad_size:"件数が多すぎます（500人まで）",bad_campus:"校舎が正しくありません",save_failed:"保存に失敗しました",server_error:"サーバーでエラーが起きました",invalid_json:"送信内容が正しくありません",failed:"取得に失敗しました",bad_lock:"対象の指定が正しくありません",bad_period:"期間が正しくありません（終了は開始より後に）"};
+const $=id=>document.getElementById(id);
+let SEC="",ROLE="",MY_CAMPUS=null,STU=[];
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function msg(el,t,ok){el.innerHTML=t?`<div class="msg ${ok?"ok":"ng"}">${esc(t)}</div>`:""}
+async function api(body){
+  if(!CFG.apiUrl)throw new Error("config.js に apiUrl が設定されていません");
+  let r;
+  try{r=await fetch(CFG.apiUrl,{method:"POST",headers:{"Content-Type":"application/json",apikey:CFG.apiKey||"",Authorization:"Bearer "+(CFG.apiKey||"")},body:JSON.stringify({adminSecret:SEC,...body})})}
+  catch(e){throw new Error("サーバーに接続できません。通信を確認してください")}
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!j)throw new Error("サーバーの応答が正しくありません（HTTP "+r.status+"）");
+  if(j.result!=="success"){const e=new Error(ERR[j.message]||j.message||"エラー");e.code=j.message;throw e}
+  return j;
+}
+const dt=s=>s?new Date(s).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+const dtl=s=>s?new Date(s).toLocaleString("ja-JP"):"—";
+function gradeOfNumber(n){const co=+String(n).slice(1,3),j=new Date(Date.now()+9*3600e3),fy=j.getUTCFullYear()-(j.getUTCMonth()+1<4?1:0),g=3-(co-(fy-2016));return g>3?"卒業":g<1?"未入学":"中"+g}
+
+/* ---------- ダイアログ ---------- */
+function dialog(html,buttons,wide){
+  return new Promise(res=>{
+    $("dlg").className=wide?"wide":"";
+    $("dbody").innerHTML=html;const b=$("dbtn");b.innerHTML="";
+    buttons.forEach(([label,val,cls])=>{const x=document.createElement("button");x.textContent=label;if(cls)x.className=cls;x.onclick=()=>{d.close();res(val)};b.append(x)});
+    const d=$("dlg");d.oncancel=()=>res(null);d.showModal();
+  });
+}
+const confirmBox=(t,danger)=>dialog(`<p>${esc(t)}</p>`,[["やめる",false,"s"],["実行する",true,danger?"d":""]]);
+async function secretBox(title,note,value){
+  $("dbody").innerHTML=`<h2>${esc(title)}</h2><div class="big" id="bigv">${esc(value)}</div><p class="m">${esc(note)}</p>`;
+  const b=$("dbtn");b.innerHTML="";
+  const c=document.createElement("button");c.className="s";c.textContent="コピー";c.onclick=async()=>{try{await navigator.clipboard.writeText(value);c.textContent="コピーしました"}catch(e){c.textContent="コピーできません"}};
+  const o=document.createElement("button");o.textContent="閉じる";
+  b.append(c,o);const d=$("dlg");
+  return new Promise(r=>{o.onclick=()=>{d.close();r()};d.oncancel=()=>r();d.showModal()});
+}
+
+/* ---------- ログイン ---------- */
+async function login(){
+  SEC=$("sec").value.trim();msg($("lmsg"),"");
+  if(SEC.length<16){msg($("lmsg"),"合言葉は16文字以上です");return}
+  $("go").disabled=true;
+  try{
+    const r=await api({action:"students"});STU=r.students;
+    try{await api({action:"staffSecrets"});ROLE="admin"}catch(e){if(e.code!=="forbidden")throw e;ROLE="teacher"}
+    start();
+  }catch(e){SEC="";msg($("lmsg"),e.code==="forbidden"?"合言葉が違うか、一時的にロックされています。しばらくしてからもう一度お試しください":e.message)}
+  finally{$("go").disabled=false}
+}
+$("go").onclick=login;$("sec").onkeydown=e=>{if(e.key==="Enter")login()};
+$("out").onclick=()=>{SEC="";ROLE="";STU=[];$("sec").value="";$("app").classList.add("hide");$("login").classList.remove("hide");$("out").classList.add("hide");$("who").textContent=""};
+
+function start(){
+  $("login").classList.add("hide");$("app").classList.remove("hide");$("out").classList.remove("hide");$("sec").value="";
+  let tabs=[["students","生徒"],["report","学習状況"],["lock","ロック"]];
+  if(ROLE==="admin")tabs.push(["add","一括登録"],["staff","講師用の合言葉"],["log","操作ログ"],["exp","書き出し"]);
+  $("tabs").innerHTML="";
+  tabs.forEach(([k,l])=>{const b=document.createElement("button");b.textContent=l;b.dataset.k=k;b.onclick=()=>tab(k);$("tabs").append(b)});
+  const fc=$("fc");fc.innerHTML='<option value="">全校舎</option>'+Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${n}</option>`).join("");
+  const rc=$("rc");rc.innerHTML=fc.innerHTML;$("lc").innerHTML='<option value="">全校舎</option>'+Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${n}</option>`).join("");
+  $("sc").innerHTML=Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${i} ${n}</option>`).join("");
+  if(ROLE==="teacher"){const c=STU[0]?.campusId;MY_CAMPUS=c||null;if(c){fc.innerHTML=`<option value="${c}">${CAMPUS[c]}</option>`;fc.disabled=true;rc.innerHTML=fc.innerHTML;rc.disabled=true}$("lockform").classList.add("hide");$("who").textContent="講師"+(c?"（"+CAMPUS[c]+"）":"")}
+  else $("who").textContent="管理者";
+  tab("students");renderStudents();
+}
+function tab(k){
+  ["students","report","lock","add","staff","log","exp"].forEach(x=>$("p-"+x).classList.toggle("hide",x!==k));
+  [...$("tabs").children].forEach(b=>b.classList.toggle("on",b.dataset.k===k));
+  if(k==="report")loadReport();if(k==="lock")loadLocks();if(k==="staff")loadStaff();if(k==="log")loadLog();if(k==="exp")expUI();
+}
+
+/* ---------- 生徒一覧 ---------- */
+async function loadStudents(){
+  msg($("smsg"),"");$("reload").disabled=true;
+  try{STU=(await api({action:"students"})).students;renderStudents()}catch(e){msg($("smsg"),e.message)}finally{$("reload").disabled=false}
+}
+function renderStudents(){
+  const fc=$("fc").value,fg=$("fg").value,fs=$("fs").value,q=$("fq").value.trim().toLowerCase();
+  const rows=STU.filter(s=>(!fc||String(s.campusId)===fc)&&(!fg||s.grade===fg)&&(!fs||(fs==="locked"?s.locked:s.status===fs))&&(!q||s.number.includes(q)||(s.name||"").toLowerCase().includes(q)));
+  $("cnt").textContent=`${rows.length}人 / 全${STU.length}人`;
+  const tb=$("stb");tb.innerHTML="";
+  rows.slice(0,600).forEach(s=>{
+    const tr=document.createElement("tr");
+    const st=s.status==="active"?'<span class="tag t-ok">有効</span>':'<span class="tag t-ng">無効</span>';
+    tr.innerHTML=`<td>${esc(s.number)}</td><td class="w">${esc(s.name)}</td><td>${esc(s.campusName||CAMPUS[s.campusId]||"")}</td><td>${esc(s.grade)}</td><td>${st}${s.locked?' <span class="tag t-wn">ロック中</span>':""}</td><td>${dt(s.lastLoginAt)}</td><td></td>`;
+    const td=tr.lastChild;
+    const add=(l,f,c)=>{const b=document.createElement("button");b.className="sm "+(c||"s");b.textContent=l;b.onclick=()=>f(s);td.append(b," ")};
+    add("合言葉を再発行",reset);
+    if(s.locked)add("ロック解除",unlock);
+    if(ROLE==="admin"){add("氏名",rename);add(s.status==="active"?"無効にする":"有効にする",toggle);add("削除",remove,"d")}
+    tb.append(tr);
+  });
+  if(rows.length>600){const tr=document.createElement("tr");tr.innerHTML=`<td colspan="7" class="m">先頭600人まで表示しています。絞り込んでください。</td>`;tb.append(tr)}
+}
+["fc","fg","fs"].forEach(i=>$(i).onchange=renderStudents);$("fq").oninput=renderStudents;$("reload").onclick=loadStudents;
+async function act(s,body,done){
+  msg($("smsg"),"");
+  try{const r=await api(body);await loadStudents();if(done)await done(r);}catch(e){msg($("smsg"),e.message)}
+}
+async function reset(s){
+  if(!await confirmBox(`${s.number} ${s.name} さんの合言葉を再発行します。今の合言葉とログイン中の端末は、すべて使えなくなります。`))return;
+  try{const r=await api({action:"resetPasscode",number:s.number});await loadStudents();await secretBox("新しい合言葉（6桁）",`${s.number} ${s.name} さん。この画面を閉じると、もう表示できません。本人にだけ伝えてください。`,r.passcode)}catch(e){msg($("smsg"),e.message)}
+}
+const unlock=s=>act(s,{action:"unlockStudent",number:s.number});
+async function rename(s){
+  const v=await dialog(`<h2>氏名の変更</h2><p class="m">${esc(s.number)}</p><input id="nn" type="text" maxlength="40" value="${esc(s.name)}">`,[["やめる",null,"s"],["変更する","ok"]]);
+  if(v!=="ok")return;const name=$("nn").value.trim();if(!name)return;
+  act(s,{action:"updateStudent",number:s.number,name});
+}
+async function toggle(s){
+  const to=s.status==="active"?"inactive":"active";
+  if(to==="inactive"&&!await confirmBox(`${s.number} ${s.name} さんを無効にします。ログインできなくなり、ログイン中の端末もすべて外れます。学習記録は残ります。`))return;
+  act(s,{action:"setStudentStatus",number:s.number,status:to});
+}
+async function remove(s){
+  const v=await dialog(`<h2>削除</h2><p>${esc(s.number)} ${esc(s.name)} さんと、その学習記録をすべて削除します。<b>元に戻せません。</b>退塾の場合は「無効にする」をおすすめします。</p><p class="m">続けるには、番号 <b>${esc(s.number)}</b> を入力してください。</p><input id="dn" type="text" inputmode="numeric">`,[["やめる",null,"s"],["削除する","ok","d"]]);
+  if(v!=="ok"||$("dn").value.trim()!==s.number)return;
+  act(s,{action:"deleteStudent",number:s.number});
+}
+
+/* ---------- 一括登録 ---------- */
+(function(){const j=new Date(Date.now()+9*3600e3),fy=j.getUTCFullYear()-(j.getUTCMonth()+1<4?1:0),c=g=>String(fy-2016+3-g).padStart(2,"0");
+ $("cohorts").textContent=`中3＝${c(3)}、中2＝${c(2)}、中1＝${c(1)}（4月に+1）`;$("ex1").textContent=`1${c(1)}001,山田 太郎`;
+ $("addta").placeholder=`1${c(1)}001,山田 太郎\n1${c(1)}002,佐藤 花子,4821`})();
+let PARSED=[];
+function rand4(){
+  for(;;){const a=new Uint32Array(1);crypto.getRandomValues(a);const p=String(a[0]%10000).padStart(4,"0");
+    if(/^(\d)\1{3}$/.test(p)||"0123456789012".includes(p)||"9876543210987".includes(p))continue;return p}
+}
+function parse(){
+  const out=[],seen=new Set(),have=new Set(STU.map(s=>s.number));
+  $("addta").value.split(/\r?\n/).forEach((ln,i)=>{
+    if(!ln.trim())return;
+    const c=ln.split(/[,\t]/).map(x=>x.trim());
+    const number=(c[0]||"").replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248)),name=c[1]||"",pass=(c[2]||"").replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-65248));
+    let e="";
+    if(!/^[1-8][0-9]{5}$/.test(number))e="番号は6桁（先頭は校舎1〜8）";
+    else if(!name)e="氏名がありません";
+    else if(name.length>40)e="氏名が長すぎます";
+    else if(pass&&!/^[0-9]{4,}$/.test(pass))e="合言葉は数字4桁以上";
+    else if(seen.has(number))e="入力内で番号が重複";
+    else if(have.has(number))e="すでに登録済み";
+    seen.add(number);
+    out.push({line:i+1,number,name,pass,gen:!pass,e});
+  });
+  return out;
+}
+$("prev").onclick=()=>{
+  msg($("addres"),"");PARSED=parse();
+  if(!PARSED.length){$("addprev").innerHTML='<div class="msg ng">入力がありません</div>';return}
+  const ok=PARSED.filter(r=>!r.e),ng=PARSED.length-ok.length;
+  let h=`<div class="msg ${ng?"ng":"ok"}">登録できるのは ${ok.length}人${ng?`、確認が必要な行が ${ng}件（その行は登録しません）`:""}</div><div class="tw"><table><thead><tr><th>行</th><th>番号</th><th>氏名</th><th>校舎</th><th>学年</th><th>合言葉</th><th></th></tr></thead><tbody>`;
+  PARSED.forEach(r=>{const v=!r.e;h+=`<tr><td>${r.line}</td><td>${esc(r.number)}</td><td>${esc(r.name)}</td><td>${v?esc(CAMPUS[+r.number[0]]):""}</td><td>${v?esc(gradeOfNumber(r.number)):""}</td><td>${v?(r.gen?'<span class="m">自動で作成</span>':"指定あり"):""}</td><td>${r.e?`<span class="tag t-ng">${esc(r.e)}</span>`:""}</td></tr>`});
+  h+=`</tbody></table></div><div class="row"><button id="doadd" ${ok.length?"":"disabled"}>${ok.length}人を登録する</button></div>`;
+  $("addprev").innerHTML=h;
+  $("doadd").onclick=doAdd;
+};
+async function doAdd(){
+  const ok=PARSED.filter(r=>!r.e);if(!ok.length)return;
+  $("doadd").disabled=true;
+  const list=ok.map(r=>({number:r.number,name:r.name,passcode:r.pass||rand4()}));
+  const pw=Object.fromEntries(list.map(r=>[r.number,r.passcode]));
+  const added=[],skipped=[],invalid=[];
+  try{
+    for(let i=0;i<list.length;i+=200){const r=await api({action:"addStudents",students:list.slice(i,i+200)});added.push(...r.added);skipped.push(...r.skipped);invalid.push(...r.invalid)}
+  }catch(e){msg($("addres"),(added.length?`途中まで登録しました（${added.length}人）。`:"")+e.message);if(!added.length){$("doadd").disabled=false;return}}
+  const nm=Object.fromEntries(ok.map(r=>[r.number,r.name]));
+  const csv=["番号,氏名,校舎,学年,合言葉",...added.map(n=>[n,nm[n],CAMPUS[+n[0]],gradeOfNumber(n),pw[n]].map(cell).join(","))].join("\r\n");
+  $("addprev").innerHTML="";
+  $("addres").innerHTML=`<div class="msg ok">${added.length}人を登録しました${skipped.length?`／登録済みのため除外 ${skipped.length}件`:""}${invalid.length?`／形式不正 ${invalid.length}件`:""}</div>
+  <p class="m"><b>合言葉は、この画面でしか見られません。</b>下の表を印刷するか、CSVを保存してください（保存したCSVの扱いにはご注意ください）。</p>
+  <div class="bar noprint"><button id="dlcsv">CSVを保存</button><button class="s" id="prn">印刷</button></div>
+  <div class="tw"><table><thead><tr><th>番号</th><th>氏名</th><th>校舎</th><th>学年</th><th>合言葉</th></tr></thead><tbody>${added.map(n=>`<tr><td>${esc(n)}</td><td>${esc(nm[n])}</td><td>${esc(CAMPUS[+n[0]])}</td><td>${esc(gradeOfNumber(n))}</td><td><b>${esc(pw[n])}</b></td></tr>`).join("")}</tbody></table></div>`;
+  $("dlcsv").onclick=()=>download("生徒登録_"+stamp()+".csv",csv);$("prn").onclick=()=>print();
+  $("addta").value="";PARSED=[];
+  loadStudents();
+}
+
+
+/* ---------- 学習状況・ロック(段階3) ---------- */
+const META={"g":{"G-Q-BE":"be動詞の疑問文","G-Q-DO":"一般動詞の疑問文（do/does/did）","G-Q-WH":"疑問詞で始まる疑問文","G-Q-HOW-ADJ":"How many/much/long/often など","G-NEG":"否定文","G-IMPERATIVE":"命令文","G-LETS":"Let's ～","G-EXCLAM":"感嘆文（What/How ～!）","G-TAG-Q":"付加疑問","G-INDIRECT-Q":"間接疑問文","G-THERE-BE":"There is/are ～","G-SVC":"主語・動詞・補語の文（be/look/become/feel＋補語）","G-SVOO":"主語・動詞・目的語2つの文（give/show/tell 人 物）","G-SVOC":"主語・動詞・目的語・補語の文（make/call/name 目的語 補語）","G-LET-DO":"let/make/help＋O＋原形","G-WANT-TO":"want/ask/tell＋O＋to不定詞","G-PRESENT":"現在形（習慣・事実）","G-3SG":"三人称単数現在","G-PRES-PROG":"現在進行形","G-VERB-PAST":"過去形","G-PAST-PROG":"過去進行形","G-WILL":"will（未来・意志）","G-BE-GOING-TO":"be going to（予定）","G-PERF-EXP":"現在完了（経験）","G-PERF-CONT":"現在完了（継続）","G-PERF-COMP":"現在完了（完了・結果）","G-PERF-PROG":"現在完了進行形","G-AUX-CAN":"can","G-AUX-COULD":"could","G-AUX-MAY":"may","G-AUX-MUST":"must","G-AUX-SHOULD":"should","G-HAVE-TO":"have to","G-AUX-SHALL":"Shall I/we ～?","G-AUX-WOULD":"would / Would you like ～?","G-REQUEST":"Can/Will/Could you ～?（依頼）","G-INF-NOUN":"不定詞（名詞的用法）","G-INF-ADJ":"不定詞（形容詞的用法）","G-INF-ADV-PURPOSE":"不定詞（副詞的・目的）","G-INF-ADV-CAUSE":"不定詞（副詞的・感情の原因）","G-IT-TO":"It is ～ (for 人) to …","G-HOW-TO":"疑問詞＋to不定詞","G-TOO-TO":"too ～ to … / enough to","G-GER-OBJ":"動名詞（目的語）","G-GER-SUBJ":"動名詞（主語）","G-PREP-GER":"前置詞＋動名詞","G-GER-COMP":"動名詞（補語）","G-PART-PRES-POST":"現在分詞の後置修飾","G-PART-PAST-POST":"過去分詞の後置修飾","G-PART-PRE":"分詞の前置修飾","G-REL-WHO":"関係代名詞 who（主格）","G-REL-SUBJ":"関係代名詞 which/that（主格）","G-REL-OBJ":"関係代名詞 which/that（目的格）","G-REL-OMIT":"目的格関係代名詞の省略（接触節）","G-REL-WHAT":"関係代名詞 what","G-REL-ADV":"関係副詞 where/when など","G-PASSIVE":"受動態","G-PASSIVE-BY":"受動態＋by","G-PASSIVE-AUX":"助動詞＋受動態","G-SUBJ-WISH":"仮定法 I wish ～","G-SUBJ-IF":"仮定法 If ～ were/過去形","G-COMP-ER":"比較級","G-COMP-EST":"最上級","G-COMP-AS":"as ～ as","G-COMP-MORE":"more/most ～","G-COMP-IDIOM":"比較の慣用表現（～ times as, one of the -est など）","G-CONJ-AND-BUT-OR":"and/but/or","G-CONJ-SO":"so（だから）","G-CONJ-THAT":"接続詞 that（名詞節）","G-CONJ-THAT-OMIT":"接続詞 that の省略","G-CONJ-WHEN":"when","G-CONJ-IF":"if（条件）","G-CONJ-BECAUSE":"because","G-CONJ-TIME":"before/after/until/while/since/as soon as","G-CONJ-THOUGH":"though/although","G-SO-THAT":"so ～ that …","G-EMOTION-THAT":"感情の形容詞＋that節","G-CORRELATIVE":"both A and B / not only A but also B / either A or B","G-ONE-OF":"one of＋複数名詞","G-PRONOUN-INDEF":"不定代名詞（some/any/other/another/each など）","G-PRONOUN-CASE":"人称代名詞の格（I/my/me, we/our/us など）","G-PRONOUN-POSS":"所有代名詞（mine/yours/his/hers など）","G-SOMETHING-ADJ":"something＋形容詞","G-IT-FORMAL":"it（天候・時間・状況）","G-QUANT":"数量表現（many/much/a few/a little/a lot of）","G-PREP":"前置詞句（時・場所・手段）","G-ADV-FREQ":"頻度の副詞","G-PHRASE":"熟語・慣用表現","G-DISCOURSE":"談話標識（First, However, For example など）","G-CONV":"会話表現（Sounds good. / I see. など）"},"ex":{"2021-A":{"label":"2021年度 A問題","dai":[["2021-A-01","大問1 和文に合う語の選択"],["2021-A-02","大問2 ヒゲペンギンの名前"],["2021-A-03","大問3 モンゴルのデールと着物の布"]]},"2021-B":{"label":"2021年度 B問題","dai":[["2021-B-01","大問1 デールと着物の布"],["2021-B-02","大問2 和ろうそくとブドウハゼの原木"],["2021-B-03","大問3 テニスの試合に向けた練習の相談"]]},"2021-C":{"label":"2021年度 C問題","dai":[["2021-C-01","大問1 語句の並べかえ（4択）"],["2021-C-02","大問2 食品選びで重視する要素（表の読み取り）"],["2021-C-03","大問3 日本の時計の歴史と時の記念日"],["2021-C-04","大問4 ブドウハゼの原木を探した高校生"],["2021-C-05","大問5 アサガオが朝に咲く理由"],["2021-C-06","大問6 土星の衛星タイタンとドローン"],["2021-C-07","大問7 リーダーに最も求める資質"]]},"2022-A":{"label":"2022年度 A問題","dai":[["2022-A-01","大問1 和文に合う語の選択"],["2022-A-02","大問2 自動販売機の歴史と役割"],["2022-A-03","大問3 琵琶湖とグランドキャニオン"]]},"2022-B":{"label":"2022年度 B問題","dai":[["2022-B-01","大問1 訪れることと学ぶこと（琵琶湖とグランドキャニオン）"],["2022-B-02","大問2 ホタテガイの動きと二枚貝の筋肉"],["2022-B-03","大問3 夏の旅行の行き先（海か山か）"]]},"2022-C":{"label":"2022年度 C問題","dai":[["2022-C-01","大問1 語句整序の選択"],["2022-C-02","大問2 高校生の社会参加に関する国際調査"],["2022-C-03","大問3 スペースデブリ（宇宙ゴミ）"],["2022-C-04","大問4 ホタテガイと二枚貝の筋肉"],["2022-C-05","大問5 変形菌（粘菌）と迷路の実験"],["2022-C-06","大問6 困難を乗り越える助けになるもの"]]},"2023-A":{"label":"2023年度 A問題","dai":[["2023-A-01","大問1 和文に合う語の選択"],["2023-A-02","大問2 和紙と和紙で作られた服"],["2023-A-03","大問3 納豆とインドネシアのテンペ"]]},"2023-B":{"label":"2023年度 B問題","dai":[["2023-B-01","大問1 テンペと納豆（世界の発酵大豆食品）"],["2023-B-02","大問2 金継ぎ（kintsugi）"]]},"2023-C":{"label":"2023年度 C問題","dai":[["2023-C-01","大問1 語句整序の選択"],["2023-C-02","大問2 歩きスマホについての調査"],["2023-C-03","大問3 スマート農業"],["2023-C-04","大問4 金継ぎ"],["2023-C-05","大問5 ナッジ理論"],["2023-C-06","大問6 読書は生活にどう役立つか"]]},"2024-A":{"label":"2024年度 A問題","dai":[["2024-A-01","大問1 和文に合う語の選択"],["2024-A-02","大問2 マンホールのふたのデザイン"],["2024-A-03","大問3 オランダの自転車事情"]]},"2024-B":{"label":"2024年度 B問題","dai":[["2024-B-01","大問1 オランダの自転車事情と道路標識"],["2024-B-02","大問2 本多静六と鉄道防雪林"]]},"2024-C":{"label":"2024年度 C問題","dai":[["2024-C-01","大問1 語句の並べ替え（単文）"],["2024-C-02","大問2 メディア利用に関する調査と表"],["2024-C-03","大問3 本多静六と鉄道を守る林"],["2024-C-04","大問4 折り紙の折り方と宇宙開発"],["2024-C-05","大問5 恐竜の復元像の今と昔"],["2024-C-06","大問6 目標を達成するために大切なこと"]]},"2025-A":{"label":"2025年度 A問題","dai":[["2025-A-01","大問1 和文に合う語の選択"],["2025-A-02","大問2 あやとりと世界のひも遊び"],["2025-A-03","大問3 雪の結晶とウィルソン・ベントレー"]]},"2025-B":{"label":"2025年度 B問題","dai":[["2025-B-01","大問1 雪の結晶とウィルソン・ベントレー"],["2025-B-02","大問2 上総掘りと世界の水問題"]]},"2025-C":{"label":"2025年度 C問題","dai":[["2025-C-01","大問1 語句の並べ替え（単文）"],["2025-C-02","大問2 技術の変化に対する高校生の意識調査"],["2025-C-03","大問3 コルク材の特徴と環境への役割"],["2025-C-04","大問4 上総掘りと世界の井戸"],["2025-C-05","大問5 アイジンガーのプラネタリウム"],["2025-C-06","大問6 大切なことを学んだ経験と自分の変化"]]}}};
+const GN=META.g,EXM=META.ex;
+const QT={blank_choice:"空所補充(選択)",conditioned_writing:"条件英作文",content_match:"内容一致",free_writing:"自由英作文",graph_choice:"グラフ選択",insert_position:"文の挿入位置",ja_to_en_fill:"和文英訳(空所)",meaning_choice:"語句の意味",other_choice:"その他の選択",passage_order:"段落の整序",phrase_order_choice:"語句の整序(選択)",qa_write:"英問英答(記述)",reference_extract:"指示語・抜き出し",reorder_write:"並べかえ(記述)",word_choice_ja:"日本語に合う語の選択","-":"不明"};
+const gname=c=>GN[c]||c;
+const pctf=(ok,n)=>n?Math.round(ok*100/n):null;
+const rateHTML=(ok,n)=>{const p=pctf(ok,n);return p==null?'<span class="m">—</span>':`<span class="rate ${p<60?"lo":p<80?"mid":"hi"}">${p}%</span>`};
+const cohortOf=g=>{const j=new Date(Date.now()+9*3600e3),fy=j.getUTCFullYear()-(j.getUTCMonth()+1<4?1:0);return fy-2016+3-g};
+let RPT=[];
+async function loadReport(){
+  msg($("rmsg"),"");$("rreload").disabled=true;
+  try{RPT=(await api({action:"reportStudents"})).students;renderReport()}catch(e){msg($("rmsg"),e.message)}finally{$("rreload").disabled=false}
+}
+function renderReport(){
+  const fc=$("rc").value,fg=$("rg").value,q=$("rq").value.trim().toLowerCase(),inact=$("rinact").checked,now=Date.now();
+  const rows=RPT.filter(s=>s.status==="active"&&(!fc||String(s.campusId)===fc)&&(!fg||s.cohort===cohortOf(+fg))&&(!q||s.number.includes(q)||(s.name||"").toLowerCase().includes(q))&&(!inact||!s.lastAt||now-new Date(s.lastAt).getTime()>=7*864e5));
+  $("rcnt").textContent=`${rows.length}人`;
+  const tb=$("rtb");tb.innerHTML="";
+  rows.forEach(s=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${esc(s.number)}</td><td class="w">${esc(s.name)}</td><td>${esc(CAMPUS[s.campusId]||"")}</td><td>${esc(gradeOfNumber(s.number))}</td><td>${s.lastAt?dt(s.lastAt):'<span class="m">なし</span>'}</td><td>${s.n7}</td><td>${s.firstN}</td><td>${rateHTML(s.firstOk,s.firstN)}</td><td class="w">${s.weak.length?s.weak.map(w=>`${esc(gname(w.code))}（${pctf(w.ok,w.n)}%・${w.n}問）`).join("<br>"):'<span class="m">—</span>'}</td><td></td>`;
+    const b=document.createElement("button");b.className="s sm";b.textContent="詳細";b.onclick=()=>detail(s);tr.lastChild.append(b);
+    tb.append(tr);
+  });
+  if(!rows.length)tb.innerHTML='<tr><td colspan="10" class="m">該当する生徒がいません</td></tr>';
+}
+["rc","rg","rinact"].forEach(i=>$(i).onchange=renderReport);$("rq").oninput=renderReport;$("rreload").onclick=loadReport;
+const grid=(rows,head)=>`<div class="tw"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+async function detail(s){
+  let r;try{r=(await api({action:"reportStudent",number:s.number})).report}catch(e){msg($("rmsg"),e.message);return}
+  const ex=id=>EXM[id]?EXM[id].label:id;
+  const h=`<h2>${esc(s.number)} ${esc(s.name)}</h2><p class="m">${esc(CAMPUS[s.campusId]||"")}・${esc(gradeOfNumber(s.number))}</p>
+  <h3 style="font-size:15px">文法項目ごと（正答率の低い順）</h3>${r.byGrammar.length?grid(r.byGrammar.map(g=>`<tr><td class="w">${esc(gname(g.code))}</td><td>${g.ok}/${g.n}</td><td>${rateHTML(g.ok,g.n)}</td></tr>`),["文法","正答/設問","正答率"]):'<p class="m">まだ記録がありません</p>'}
+  <h3 style="font-size:15px">設問の種類ごと</h3>${r.byQtype.length?grid(r.byQtype.map(g=>`<tr><td class="w">${esc(QT[g.qtype]||g.qtype)}</td><td>${g.ok}/${g.n}</td><td>${rateHTML(g.ok,g.n)}</td></tr>`),["種類","正答/設問","正答率"]):""}
+  <h3 style="font-size:15px">最近の解答（新しい順・50件まで）</h3>${r.recent.length?grid(r.recent.map(a=>`<tr><td>${dt(a.answered_at)}</td><td>${esc(ex(a.exam_id))}</td><td>${esc(String(a.question_id).replace(a.section_id+"-",""))}</td><td>${a.first_correct===true?"○":a.first_correct===false?"×":"—"}</td><td>${a.elapsed_ms!=null?Math.round(a.elapsed_ms/1000)+"秒":""}</td><td>${a.hints_used?"ヒント"+a.hints_used:""}${a.revealed?" 答えを見た":""}</td></tr>`),["日時","試験","設問","最初","時間","補足"]):""}`;
+  await dialog(h,[["閉じる",true]],true);
+}
+$("rcamp").onclick=async()=>{
+  const fc=$("rc").value,fg=$("rg").value;
+  try{
+    const r=(await api({action:"reportCampus",campusId:fc?+fc:null,cohort:fg?cohortOf(+fg):null})).report.byGrammar;
+    const title=`${fc?CAMPUS[fc]:"全校舎"}・${fg?"中"+fg:"全学年"}`;
+    await dialog(`<h2>文法項目ごとのまとめ</h2><p class="m">${esc(title)}。設問ごとの最初の解答で数えています。解答数が少ない項目は、参考程度に見てください。</p>${r.length?grid(r.map(g=>`<tr><td class="w">${esc(gname(g.code))}</td><td>${rateHTML(g.ok,g.n)}</td><td>${g.ok}/${g.n}</td><td>${g.students}人</td></tr>`),["文法","正答率","正答/解答数","人数"]):'<p class="m">まだ記録がありません</p>'}`,[["閉じる",true]],true);
+  }catch(e){msg($("rmsg"),e.message)}
+};
+
+/* ---- ロック ---- */
+function fillLockForm(){
+  const le=$("le");if(le.options.length)return;
+  le.innerHTML='<option value="">全試験</option>'+Object.entries(EXM).map(([id,e])=>`<option value="${id}">${e.label}</option>`).join("");
+  const sync=()=>{const e=EXM[le.value];$("ls").innerHTML='<option value="">試験の全体</option>'+(e?e.dai.map(([id,t])=>`<option value="${id}">${esc(t)}</option>`).join(""):"");$("ls").disabled=!e};
+  le.onchange=sync;sync();
+  const loc=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,16)};
+  $("lst").value=loc(new Date());$("len").value=loc(new Date(Date.now()+7*864e5));
+}
+function lockState(l){const n=Date.now(),s=new Date(l.starts_at).getTime(),e=new Date(l.ends_at).getTime();
+  return !l.active?['解除済み','t-wn']:e<=n?['終了','t-wn']:s>n?['予定','t-ok']:['実施中','t-ng']}
+async function loadLocks(){
+  fillLockForm();msg($("lmsg2"),"");
+  try{
+    const r=await api({action:"locks"});const tb=$("lktb");tb.innerHTML="";
+    r.locks.forEach(l=>{
+      const [st,cl]=lockState(l);
+      const target=[l.campus_id?CAMPUS[l.campus_id]:"全校舎",l.exam_id?(EXM[l.exam_id]?EXM[l.exam_id].label:l.exam_id):"全試験",l.section_id?((EXM[l.exam_id]&&EXM[l.exam_id].dai.find(d=>d[0]===l.section_id)||[,l.section_id])[1]):"試験全体"].join(" ／ ");
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${l.id}</td><td class="w">${esc(target)}</td><td>${dtl(l.starts_at)}<br>〜 ${dtl(l.ends_at)}</td><td><span class="tag ${cl}">${st}</span></td><td class="w">${esc(l.note)}</td><td></td>`;
+      if(ROLE==="admin"){
+        const td=tr.lastChild,mk=(t,f,c)=>{const b=document.createElement("button");b.className="sm "+(c||"s");b.textContent=t;b.onclick=f;td.append(b," ")};
+        if(l.active&&new Date(l.ends_at)>new Date())mk("解除する",()=>setLock(l,false));
+        else if(!l.active&&new Date(l.ends_at)>new Date())mk("再開する",()=>setLock(l,true));
+        mk("削除",async()=>{if(!await confirmBox(`ロック #${l.id} を削除します。`,true))return;try{await api({action:"deleteLock",id:l.id});loadLocks()}catch(e){msg($("lmsg2"),e.message)}},"d");
+      }
+      tb.append(tr);
+    });
+    if(!r.locks.length)tb.innerHTML='<tr><td colspan="6" class="m">ロックはありません</td></tr>';
+  }catch(e){msg($("lmsg2"),e.message)}
+}
+async function setLock(l,active){try{await api({action:"setLockActive",id:l.id,active});loadLocks()}catch(e){msg($("lmsg2"),e.message)}}
+$("lsave").onclick=async()=>{
+  const st=$("lst").value,en=$("len").value;
+  if(!en){msg($("lmsg2"),"終了の日時を入れてください");return}
+  const s=st?new Date(st):new Date(),e=new Date(en);
+  if(!(e>s)){msg($("lmsg2"),"終了は、開始より後にしてください");return}
+  const scope=`${$("lc").value?CAMPUS[$("lc").value]:"全校舎"}・${$("le").value?EXM[$("le").value].label:"全試験"}${$("ls").value?"・"+$("ls").selectedOptions[0].textContent:""}`;
+  if(!await confirmBox(`${scope}を、${s.toLocaleString("ja-JP")} から ${e.toLocaleString("ja-JP")} までロックします。`))return;
+  try{await api({action:"saveLock",campusId:$("lc").value||null,examId:$("le").value||null,sectionId:$("ls").value||null,startsAt:s.toISOString(),endsAt:e.toISOString(),note:$("lnote").value.trim()});
+    $("lnote").value="";msg($("lmsg2"),"ロックを設定しました",true);loadLocks()}catch(e){msg($("lmsg2"),e.message)}
+};
+
+/* ---------- 講師用の合言葉 ---------- */
+async function loadStaff(){
+  msg($("stmsg"),"");
+  try{
+    const r=await api({action:"staffSecrets"});const tb=$("sttb");tb.innerHTML="";
+    r.secrets.forEach(s=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${s.id}</td><td>${esc(CAMPUS[s.campus_id]||s.campus_id)}</td><td class="w">${esc(s.label)}</td><td>${s.active?'<span class="tag t-ok">有効</span>':'<span class="tag t-ng">取り消し済み</span>'}</td><td>${dtl(s.created_at)}</td><td></td>`;
+      if(s.active){const b=document.createElement("button");b.className="sm d";b.textContent="取り消す";b.onclick=async()=>{if(!await confirmBox(`校舎「${CAMPUS[s.campus_id]}」の講師用合言葉（ID ${s.id}）を取り消します。この合言葉ではログインできなくなります。`,true))return;try{await api({action:"revokeStaffSecret",id:s.id});loadStaff()}catch(e){msg($("stmsg"),e.message)}};tr.lastChild.append(b)}
+      tb.append(tr);
+    });
+    if(!r.secrets.length)tb.innerHTML='<tr><td colspan="6" class="m">まだ発行していません</td></tr>';
+  }catch(e){msg($("stmsg"),e.message)}
+}
+$("issue").onclick=async()=>{
+  const c=+$("sc").value;
+  try{const r=await api({action:"issueStaffSecret",campusId:c,label:$("sl").value.trim()});$("sl").value="";loadStaff();await secretBox(`${CAMPUS[c]}の講師用合言葉`,"この画面を閉じると、もう表示できません。担当の講師にだけ伝えてください。",r.secret)}catch(e){msg($("stmsg"),e.message)}
+};
+
+/* ---------- 操作ログ ---------- */
+const ACT={addStudents:"生徒を登録",updateStudent:"氏名を変更",resetPasscode:"合言葉を再発行",unlockStudent:"ロック解除",deleteStudent:"生徒を削除",issueStaffSecret:"講師合言葉を発行",revokeStaffSecret:"講師合言葉を取り消し","setStudentStatus:active":"有効にした","setStudentStatus:inactive":"無効にした"};
+async function loadLog(){
+  try{
+    const r=await api({action:"auditLog",limit:200});const tb=$("ltb");tb.innerHTML="";
+    r.log.forEach(l=>{const tr=document.createElement("tr");tr.innerHTML=`<td>${dtl(l.at)}</td><td>${l.role==="admin"?"管理者":"講師"}</td><td>${l.campus_id?esc(CAMPUS[l.campus_id]||""):"—"}</td><td>${esc(ACT[l.action]||l.action)}</td><td>${esc(l.target||"")}</td>`;tb.append(tr)});
+  }catch(e){$("ltb").innerHTML=`<tr><td colspan="5">${esc(e.message)}</td></tr>`}
+}
+$("logreload").onclick=loadLog;
+
+/* ---------- 書き出し ---------- */
+const stamp=()=>{const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)};
+const cell=v=>{let s=v==null?"":typeof v==="object"?JSON.stringify(v):String(v);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+function download(name,text){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+text],{type:"text/csv;charset=utf-8"}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+const EXP=[["students","生徒"],["attempts","解答"],["translation_views","和訳の閲覧"],["usage_events","利用履歴"]];
+function expUI(){
+  const b=$("expbtns");if(b.children.length)return;
+  EXP.forEach(([t,l])=>{const x=document.createElement("button");x.className="s";x.textContent=l+"のCSV";x.onclick=()=>doExport(t,l,x);b.append(x)});
+}
+async function doExport(table,label,btn){
+  btn.disabled=true;msg($("expmsg"),"");
+  try{
+    let rows=[],off=0;
+    for(;;){const r=await api({action:"exportAll",table,offset:off,limit:5000});rows=rows.concat(r.rows);msg($("expmsg"),`${label}：${rows.length}件を取得中…`,true);if(r.next==null)break;off=r.next}
+    if(!rows.length){msg($("expmsg"),`${label}：データがありません`,true);return}
+    const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+    download(`${table}_${stamp()}.csv`,[cols.map(cell).join(","),...rows.map(r=>cols.map(c=>cell(r[c])).join(","))].join("\r\n"));
+    msg($("expmsg"),`${label}：${rows.length}件を保存しました`,true);
+  }catch(e){msg($("expmsg"),e.message)}finally{btn.disabled=false}
+}
+</script>
+</body></html>
