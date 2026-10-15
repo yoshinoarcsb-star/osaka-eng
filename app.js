@@ -1030,7 +1030,7 @@ function logout(msg){
 }
 
 /* ---------- 授業(生徒): 校舎の授業が始まっていれば、ログイン後に自動で参加する。更新は15秒ごと ---------- */
-const CL = {st:null, timer:null, sig:"", sigItem:"", err:"", msg:"", draft:{}, busy:false};
+const CL = {st:null, timer:null, sig:"", sigItem:"", err:"", msg:"", draft:{}, busy:false, pick:{}};
 async function classFetch(){
   if (!cloud()) return null;
   const r = await SYNC.api({action:"classState", token:SYNC.auth.token});
@@ -1069,7 +1069,7 @@ function classRefresh(){ CL.msg = ""; return classFetch().then(()=>renderClass(t
 function renderClass(force){
   if (!location.hash.startsWith("#/class") || !cloud()) return;
   const r = CL.st, it = r && r.item, ss = r && r.session;
-  const sig = JSON.stringify([ss&&ss.id, it&&it.id, it&&it.state, it&&it.myAnswer, it&&it.reveal&&it.reveal.answered, CL.err, CL.msg]);
+  const sig = JSON.stringify([ss&&ss.id, it&&it.id, it&&it.state, it&&it.myAnswer, it&&it.reveal&&it.reveal.answered, it&&it.myScore, it&&it.myComment, it&&it.id&&CL.pick[it.id], CL.err, CL.msg]);
   const ta = document.getElementById("clText");
   if (!force){
     if (sig===CL.sig) return;
@@ -1087,7 +1087,8 @@ function renderClass(force){
   if (p.stem_en) h += `<p class="clen">${esc(p.stem_en)}</p>`;
   if (p.frame) h += `<div class="frame">${esc(p.frame)}</div>`;
   if ((p.items||[]).length) h += `<ul class="clitems">${p.items.map(i=>`<li><b>${esc(i.label)}</b> ${esc(i.text)}</li>`).join("")}</ul>`;
-  if (p.words && it.kind==="text") h += `<p class="muted">（${esc(p.words)}語で書く）</p>`;
+  if (p.words && (it.kind==="text" || it.kind==="essay")) h += `<p class="muted">（${esc(p.words)}語ぐらいで書く）</p>`;
+  if (it.kind==="essay" && (p.conditions||[]).length) h += `<ul class="clitems">${p.conditions.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>`;
   if (it.kind==="choice"){
     h += `<div class="clchoices">` + (p.choices||[]).map(([l,t])=>{
       const on = mine===l, rv = it.reveal, good = rv && (rv.correct||[]).includes(l);
@@ -1096,9 +1097,18 @@ function renderClass(force){
       const dist = rv && rv.dist ? `<span class="cdist">${rv.dist[l]||0}人</span>` : "";
       return open? `<button class="${cls}" data-act="classChoice" data-l="${esc(l)}">${body}</button>` : `<div class="${cls}">${body}${dist}</div>`;
     }).join("") + `</div>`;
+  } else if (it.kind==="order"){
+    const tiles = p.tiles||[], pk = CL.pick[it.id]||[];
+    const used = new Set(pk);
+    const sent = pk.map(i=>tiles[i]).join(" ");
+    if (open){
+      h += `<div class="clslot">${pk.length? pk.map(i=>`<button class="otile on" data-act="classUnpick" data-i="${i}">${esc(tiles[i])}</button>`).join("") : '<span class="muted">下の語をタップして、正しい順に並べます</span>'}</div>
+        <div class="cltiles">${tiles.map((t,i)=>`<button class="otile" data-act="classPick" data-i="${i}" ${used.has(i)?"disabled":""}>${esc(t)}</button>`).join("")}</div>
+        <div class="row"><button data-act="classClear" ${pk.length?"":"disabled"}>やり直す</button><button class="primary" data-act="classSendOrder" ${pk.length===tiles.length?"":"disabled"}>この順で回答する</button></div>`;
+    } else h += `<p>あなたの答え：<b>${mine? esc(mine):"（未回答）"}</b></p>`;
   } else if (open){
     const val = CL.draft[it.id]!==undefined ? CL.draft[it.id] : (mine||"");
-    h += `<textarea id="clText" class="ans" rows="2" maxlength="300" placeholder="英語で答えを書く" autocapitalize="off" autocomplete="off" spellcheck="false">${esc(val)}</textarea>
+    h += `<textarea id="clText" class="ans" rows="${it.kind==="essay"? 5:2}" maxlength="${it.kind==="essay"? 800:300}" placeholder="英語で答えを書く" autocapitalize="off" autocomplete="off" spellcheck="false">${esc(val)}</textarea>
       <div class="row"><button class="primary" data-act="classSend">この答えで回答する</button></div>`;
   } else {
     h += `<p>あなたの答え：<b>${mine? esc(mine):"（未回答）"}</b></p>`;
@@ -1108,6 +1118,13 @@ function renderClass(force){
   else if (it.state==="closed") h += `<p>締め切りました。正解の発表をお待ちください。</p>`;
   else if (it.reveal){
     const rv = it.reveal;
+    if (it.kind==="essay"){
+      const graded = it.myStatus==="teacher";
+      h += `<div class="card"><p class="clres ${graded? (it.myCorrect? "good":"") : ""}">${mine? (graded? "採点結果："+it.myScore+"/"+it.points+"点" : "採点をお待ちください（あとで、この画面か学習状況で確認できます）") : "未回答"}</p>
+        ${it.myComment? `<p>先生のコメント：${esc(it.myComment)}</p>`:""}
+        ${(rv.models||[]).length? `<p>解答例：<b>${rv.models.map(esc).join(" / ")}</b></p>`:""}
+        ${rv.explanation? `<p>${esc(rv.explanation)}</p>`:""}</div>`;
+    } else
     h += `<div class="card"><p class="clres ${it.myCorrect? "good":"bad"}">${mine? (it.myCorrect? "○ 正解です" : "× 残念、不正解") : "未回答"}${it.myScore!=null? `　${it.myScore}/${it.points}点`:""}</p>
       <p>正解：<b>${it.kind==="choice"? esc((rv.correct||[]).join("・")) + (rv.correctText && rv.correctText!==(rv.correct||[])[0]? "　"+esc(rv.correctText):"") : esc(rv.correctText||"")}</b></p>
       ${(rv.variants||[]).length? `<p class="muted">別解：${rv.variants.map(esc).join(" / ")}</p>`:""}
@@ -1122,6 +1139,15 @@ $app.addEventListener("click", e=>{
   const act = b.dataset.act;
   if (act==="classRefresh") classRefresh();
   else if (act==="classChoice") classSubmit(b.dataset.l);
+  else if (act==="classPick" || act==="classUnpick" || act==="classClear" || act==="classSendOrder"){
+    const it = CL.st && CL.st.item; if (!it || it.state!=="open") return;
+    const pk = CL.pick[it.id] = CL.pick[it.id]||[], tiles = (it.pub||{}).tiles||[];
+    if (act==="classPick"){ const i = +b.dataset.i; if (!pk.includes(i)) pk.push(i); }
+    else if (act==="classUnpick"){ const i = pk.indexOf(+b.dataset.i); if (i>=0) pk.splice(i,1); }
+    else if (act==="classClear") pk.length = 0;
+    else if (pk.length===tiles.length){ classSubmit(pk.map(i=>tiles[i]).join(" ")); return; }
+    renderClass(true);
+  }
   else if (act==="classSend"){ const ta = document.getElementById("clText"); const v = ta? ta.value.trim() : ""; if (!v){ CL.msg = "答えを書いてください。"; renderClass(true); return; } classSubmit(v); }
 });
 async function classSubmit(ans){
