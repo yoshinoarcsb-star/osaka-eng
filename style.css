@@ -237,3 +237,18 @@ button.primary:active,.btn.primary:active{transform:translateY(1px);box-shadow:n
 /* 校舎ごとのロック */
 .lockmark{color:var(--warn);font-weight:700;font-size:13px}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+
+/* 授業(生徒) */
+.clchoices{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.cbtn{display:block;width:100%;text-align:left;font-size:17px;padding:14px 16px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer}
+div.cbtn{cursor:default}
+.cbtn b{margin-right:.5em}
+.cbtn.on{border-color:var(--accent,#2f6f9f);background:var(--accent-soft,#e6f0f8)}
+.cbtn.good{border-color:var(--ok);background:var(--ok-soft)}
+.cbtn.bad{border-color:var(--ng);background:var(--ng-soft)}
+.cdist{float:right;color:var(--muted);font-weight:700}
+.clen{font-size:18px}
+.clitems{padding-left:0;list-style:none}
+.clok{color:var(--ok);font-weight:700}
+.clres{font-size:20px;font-weight:800}
+.clres.good{color:var(--ok)}.clres.bad{color:var(--ng)}

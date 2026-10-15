@@ -540,6 +540,7 @@ function home(){
     <a class="tile" href="#/grammar"><b>文法</b><span>文法項目ごとに例文と設問</span></a>
     <a class="tile" href="#/vocab"><b>語彙</b><span>原問題の（注）と本文の重要語彙</span></a>
     <a class="tile" href="#/random"><b>ランダム</b><span>条件を決めて問題を集める</span></a>
+    ${cloud()? `<a class="tile" href="#/class"><b>授業</b><span>授業が始まったら、ここで答えます</span></a>` : ""}
     <a class="tile" href="#/records"><b>学習記録</b><span>${n? `これまでに${n}問。弱点とおすすめ`:"成績・弱点・おすすめ"}</span></a>
   </div>${accountHTML()}`;
 }
@@ -824,7 +825,9 @@ function route(){
   const [a,b] = path.split("/");
   document.getElementById("backBtn").style.visibility = a? "visible":"hidden";
   if (SYNC.enabled && !SYNC.auth){ document.getElementById("backBtn").style.visibility = "hidden"; return loginScreen(); }
+  if (a!=="class") stopClassPoll();
   if (!a) return home();
+  if (a==="class") return classScreen();
   if (a==="exams") return examList();
   if (a==="exam") return lockOf(b,null)? lockedPage(lockOf(b,null), b) : examPage(b);
   if (a==="solve" || a==="practice" || a==="read"){ const d = DAI[b], lk = d && lockOf(d.exam, d.id); if (lk) return lockedPage(lk, d.exam, d); }
@@ -1025,6 +1028,114 @@ function logout(msg){
   SYNC.setAuth(null); SES = null; const s = ST.settings; loadStore(s); applySettings();
   loginMsg = msg || ""; render();
 }
+
+/* ---------- 授業(生徒): 校舎の授業が始まっていれば、ログイン後に自動で参加する。更新は15秒ごと ---------- */
+const CL = {st:null, timer:null, sig:"", sigItem:"", err:"", msg:"", draft:{}, busy:false};
+async function classFetch(){
+  if (!cloud()) return null;
+  const r = await SYNC.api({action:"classState", token:SYNC.auth.token});
+  if (r.result==="success"){ CL.st = r; CL.err = ""; return r; }
+  if (r.message==="invalid_token"){ logout("ログインの有効期限が切れました。もう一度ログインしてください。"); return null; }
+  CL.err = r.message==="network" ? "通信できません。電波を確認してください。" : "授業の状態を取得できませんでした。";
+  return null;
+}
+async function classAutoJoin(){
+  const h = location.hash.replace(/^#\/?/,"");
+  if (h && !h.startsWith("?")) return; // 別の画面を開いているときは、勝手に切り替えない
+  const r = await classFetch();
+  if (r && r.session && !location.hash.startsWith("#/class")) go("#/class");
+}
+function stopClassPoll(){ clearTimeout(CL.timer); CL.timer = null; }
+function classPoll(){
+  stopClassPoll();
+  CL.timer = setTimeout(async ()=>{
+    if (!location.hash.startsWith("#/class")) return;
+    if (document.visibilityState==="visible"){ await classFetch(); renderClass(); }
+    classPoll();
+  }, 15000);
+}
+document.addEventListener("visibilitychange", async ()=>{
+  if (document.visibilityState==="visible" && location.hash.startsWith("#/class") && cloud()){ await classFetch(); renderClass(); }
+});
+function classScreen(){
+  setTitle("授業");
+  CL.sig = ""; CL.sigItem = "";
+  if (!CL.st) $app.innerHTML = `<h1>授業</h1><p class="muted">確認しています…</p>`;
+  else renderClass(true);
+  classFetch().then(()=>renderClass(true));
+  classPoll();
+}
+function classRefresh(){ CL.msg = ""; return classFetch().then(()=>renderClass(true)); }
+function renderClass(force){
+  if (!location.hash.startsWith("#/class") || !cloud()) return;
+  const r = CL.st, it = r && r.item, ss = r && r.session;
+  const sig = JSON.stringify([ss&&ss.id, it&&it.id, it&&it.state, it&&it.myAnswer, it&&it.reveal&&it.reveal.answered, CL.err, CL.msg]);
+  const ta = document.getElementById("clText");
+  if (!force){
+    if (sig===CL.sig) return;
+    if (ta && document.activeElement===ta && it && CL.sigItem===it.id+":"+it.state) return; // 入力中は作り直さない
+  }
+  CL.sig = sig; CL.sigItem = it ? it.id+":"+it.state : "";
+  const head = `<h1>授業</h1>${CL.err? `<p class="msg" role="alert">${esc(CL.err)}</p>`:""}`;
+  const refresh = `<div class="row"><button data-act="classRefresh">表示を更新</button></div>`;
+  if (!r){ $app.innerHTML = head + `<p class="muted">確認しています…</p>`; return; }
+  if (!ss){ $app.innerHTML = head + `<p>いま、授業は行われていません。</p><p class="muted">授業が始まると、この画面に問題が出ます。このまま開いておいてください（15秒ごとに自動で確認します）。</p>${refresh}`; return; }
+  if (!it){ $app.innerHTML = head + `<p>授業に参加しています。</p><p class="muted">先生が問題を出すまで、お待ちください。</p>${refresh}`; return; }
+  const p = it.pub || {}, open = it.state==="open", mine = it.myAnswer;
+  let h = head + `<div class="card"><div class="muted">第${it.seq}問${p.format? "・"+esc(p.format):""}・${it.points}点</div>`;
+  if (p.stem_ja) h += `<p>${esc(p.stem_ja)}</p>`;
+  if (p.stem_en) h += `<p class="clen">${esc(p.stem_en)}</p>`;
+  if (p.frame) h += `<div class="frame">${esc(p.frame)}</div>`;
+  if ((p.items||[]).length) h += `<ul class="clitems">${p.items.map(i=>`<li><b>${esc(i.label)}</b> ${esc(i.text)}</li>`).join("")}</ul>`;
+  if (p.words && it.kind==="text") h += `<p class="muted">（${esc(p.words)}語で書く）</p>`;
+  if (it.kind==="choice"){
+    h += `<div class="clchoices">` + (p.choices||[]).map(([l,t])=>{
+      const on = mine===l, rv = it.reveal, good = rv && (rv.correct||[]).includes(l);
+      const cls = "cbtn"+(on?" on":"")+(rv? (good?" good": on?" bad":""):"");
+      const body = `<b>${esc(l)}</b>${t && t!==l? " "+esc(t):""}`;
+      const dist = rv && rv.dist ? `<span class="cdist">${rv.dist[l]||0}人</span>` : "";
+      return open? `<button class="${cls}" data-act="classChoice" data-l="${esc(l)}">${body}</button>` : `<div class="${cls}">${body}${dist}</div>`;
+    }).join("") + `</div>`;
+  } else if (open){
+    const val = CL.draft[it.id]!==undefined ? CL.draft[it.id] : (mine||"");
+    h += `<textarea id="clText" class="ans" rows="2" maxlength="300" placeholder="英語で答えを書く" autocapitalize="off" autocomplete="off" spellcheck="false">${esc(val)}</textarea>
+      <div class="row"><button class="primary" data-act="classSend">この答えで回答する</button></div>`;
+  } else {
+    h += `<p>あなたの答え：<b>${mine? esc(mine):"（未回答）"}</b></p>`;
+  }
+  h += `</div>`;
+  if (open) h += `<p class="${mine?"clok":"muted"}">${mine? "✅ 回答しました："+esc(mine)+"（締め切りまで、変更できます）" : "まだ回答していません。"}</p>${CL.msg? `<p class="muted">${esc(CL.msg)}</p>`:""}`;
+  else if (it.state==="closed") h += `<p>締め切りました。正解の発表をお待ちください。</p>`;
+  else if (it.reveal){
+    const rv = it.reveal;
+    h += `<div class="card"><p class="clres ${it.myCorrect? "good":"bad"}">${mine? (it.myCorrect? "○ 正解です" : "× 残念、不正解") : "未回答"}${it.myScore!=null? `　${it.myScore}/${it.points}点`:""}</p>
+      <p>正解：<b>${it.kind==="choice"? esc((rv.correct||[]).join("・")) + (rv.correctText && rv.correctText!==(rv.correct||[])[0]? "　"+esc(rv.correctText):"") : esc(rv.correctText||"")}</b></p>
+      ${(rv.variants||[]).length? `<p class="muted">別解：${rv.variants.map(esc).join(" / ")}</p>`:""}
+      ${rv.explanation? `<p>${esc(rv.explanation)}</p>`:""}
+      <p class="muted">クラス：${rv.answered}人が回答、${rv.right}人が正解</p></div>`;
+  }
+  $app.innerHTML = h + refresh;
+}
+$app.addEventListener("input", e=>{ if (e.target.id==="clText" && CL.st && CL.st.item) CL.draft[CL.st.item.id] = e.target.value; });
+$app.addEventListener("click", e=>{
+  const b = e.target.closest("[data-act^='class']"); if (!b) return;
+  const act = b.dataset.act;
+  if (act==="classRefresh") classRefresh();
+  else if (act==="classChoice") classSubmit(b.dataset.l);
+  else if (act==="classSend"){ const ta = document.getElementById("clText"); const v = ta? ta.value.trim() : ""; if (!v){ CL.msg = "答えを書いてください。"; renderClass(true); return; } classSubmit(v); }
+});
+async function classSubmit(ans){
+  const it = CL.st && CL.st.item; if (!it || it.state!=="open" || CL.busy) return;
+  CL.busy = true; CL.msg = "送信しています…"; renderClass(true);
+  const r = await SYNC.api({action:"classAnswer", token:SYNC.auth.token, itemId:it.id, answer:ans});
+  CL.busy = false;
+  if (r.result==="success"){ it.myAnswer = r.myAnswer; CL.msg = ""; delete CL.draft[it.id]; }
+  else if (r.message==="closed"){ CL.msg = "締め切られました。"; await classFetch(); }
+  else if (r.message==="invalid_token"){ logout("ログインの有効期限が切れました。もう一度ログインしてください。"); return; }
+  else CL.msg = r.message==="network" ? "通信できませんでした。もう一度押してください。" : "送信できませんでした。もう一度お試しください。";
+  renderClass(true);
+}
+
 // ---- 校舎ごとのロック(サーバーが判定。ここは表示用) ----
 function locksNow(){ const a = SYNC.auth; if (!a || !Array.isArray(a.locks)) return []; const now = Date.now(); return a.locks.filter(l=>new Date(l.until).getTime() > now); }
 function lockOf(exam, dai){ return locksNow().find(l=>(!l.examId || l.examId===exam) && (!l.sectionId || l.sectionId===dai)) || null; }
@@ -1066,7 +1177,7 @@ $app.addEventListener("submit", async e=>{
   const r = await SYNC.api({action:"login", number:num, passcode:pw});
   if (r.result==="success"){
     const prev = ST.settings; SYNC.setAuth({token:r.token, student:r.student, locks:r.locks||[]}); loadStore(prev); applySettings(); SES = null; loginMsg = "";
-    render(); flush(); if (!ST.attempts.length && !legacyCount()) restoreFromServer();
+    render(); flush(); if (!ST.attempts.length && !legacyCount()) restoreFromServer(); classAutoJoin();
   } else { msg.textContent = LOGIN_ERR[r.message] || "ログインできませんでした。"; btn.disabled = false; }
 });
 function accountHTML(){
@@ -1104,7 +1215,7 @@ if (SYNC.enabled){
   window.addEventListener("online", flush);
   document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="hidden") flush(); });
   if (SYNC.auth){
-    flush();
+    flush(); classAutoJoin();
     SYNC.api({action:"me", token:SYNC.auth.token}).then(r=>{ if (r.result==="error" && r.message==="invalid_token") logout("ログインの有効期限が切れました。もう一度ログインしてください。"); else if (r.result==="success") setLocks(r.locks, true); });
   }
 }
