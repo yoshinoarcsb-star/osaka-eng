@@ -57,7 +57,7 @@ button:disabled{opacity:.45;cursor:default}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:0 0 12px}
 .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 @media (min-width:720px){.tiles{grid-template-columns:repeat(3,1fr)}}
-.otile{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px;text-decoration:none;color:var(--ink);min-height:96px}
+.tile{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px;text-decoration:none;color:var(--ink);min-height:96px}
 .tile b{display:block;font-size:1.05rem;margin-bottom:4px}
 .tile span{color:var(--muted);font-size:.85rem;line-height:1.5;display:block}
 .tile:hover{border-color:var(--accent)}
@@ -197,7 +197,7 @@ header.top button{border:0;background:transparent;color:var(--muted)}
 header.top button:hover{color:var(--accent)}
 h1{font-size:1.4rem;letter-spacing:.03em;text-wrap:balance;text-decoration:underline .42em var(--marker);text-underline-offset:-.22em;text-decoration-skip-ink:none}
 .card,.tile,.item,.stat div{box-shadow:0 1px 0 var(--lift),0 6px 16px -10px var(--shade)}
-.otile{position:relative;padding-left:22px;min-height:104px}
+.tile{position:relative;padding-left:22px;min-height:104px}
 .tile::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:5px;border-radius:0 4px 4px 0;background:var(--t1)}
 .tile:nth-child(2)::before{background:var(--t2)}.tile:nth-child(3)::before{background:var(--t3)}
 .tile:nth-child(4)::before{background:var(--t4)}.tile:nth-child(5)::before{background:var(--t5)}.tile:nth-child(6)::before{background:var(--t6)}

@@ -1030,7 +1030,7 @@ function logout(msg){
 }
 
 /* ---------- 授業(生徒): 校舎の授業が始まっていれば、ログイン後に自動で参加する。更新は15秒ごと ---------- */
-const CL = {st:null, timer:null, sig:"", sigItem:"", err:"", msg:"", draft:{}, busy:false, pick:{}};
+const CL = {st:null, timer:null, sig:"", sigItem:"", err:"", msg:"", draft:{}, busy:false, pick:{}, showPass:true};
 async function classFetch(){
   if (!cloud()) return null;
   const r = await SYNC.api({action:"classState", token:SYNC.auth.token});
@@ -1069,7 +1069,7 @@ function classRefresh(){ CL.msg = ""; return classFetch().then(()=>renderClass(t
 function renderClass(force){
   if (!location.hash.startsWith("#/class") || !cloud()) return;
   const r = CL.st, it = r && r.item, ss = r && r.session;
-  const sig = JSON.stringify([ss&&ss.id, it&&it.id, it&&it.state, it&&it.myAnswer, it&&it.reveal&&it.reveal.answered, it&&it.myScore, it&&it.myComment, it&&it.id&&CL.pick[it.id], CL.err, CL.msg]);
+  const sig = JSON.stringify([ss&&ss.id, it&&it.id, it&&it.state, it&&it.myAnswer, it&&it.reveal&&it.reveal.answered, it&&it.myScore, it&&it.myComment, it&&it.questionId, CL.showPass, it&&it.id&&CL.pick[it.id], CL.err, CL.msg]);
   const ta = document.getElementById("clText");
   if (!force){
     if (sig===CL.sig) return;
@@ -1114,6 +1114,15 @@ function renderClass(force){
     h += `<p>あなたの答え：<b>${mine? esc(mine):"（未回答）"}</b></p>`;
   }
   h += `</div>`;
+  // 本文（長文の問題）：学習アプリの精読と同じ表示。答えの根拠の黄色は、正解の公開後だけ
+  const qd = it.questionId && Q[it.questionId], part = qd && qd.partObj;
+  const hasPass = !!(part && part.passages.some(p=>p.genre!=="item_set" && p.sentences.length));
+  let passH = "";
+  if (hasPass){
+    setYellow(it.state==="revealed" ? [it.questionId] : []);
+    passH = `<div class="row" style="margin:10px 0 6px"><button data-act="classPass">${CL.showPass? "本文を隠す":"本文を見る"}</button></div>`;
+    if (CL.showPass) passH += passageHTML(DAI[qd.dai], part, {});
+  }
   if (open) h += `<p class="${mine?"clok":"muted"}">${mine? "✅ 回答しました："+esc(mine)+"（締め切りまで、変更できます）" : "まだ回答していません。"}</p>${CL.msg? `<p class="muted">${esc(CL.msg)}</p>`:""}`;
   else if (it.state==="closed") h += `<p>締め切りました。正解の発表をお待ちください。</p>`;
   else if (it.reveal){
@@ -1131,13 +1140,15 @@ function renderClass(force){
       ${rv.explanation? `<p>${esc(rv.explanation)}</p>`:""}
       <p class="muted">クラス：${rv.answered}人が回答、${rv.right}人が正解</p></div>`;
   }
-  $app.innerHTML = h + refresh;
+  $app.innerHTML = h + passH + refresh;
+  if (hasPass && CL.showPass) paintAll();
 }
 $app.addEventListener("input", e=>{ if (e.target.id==="clText" && CL.st && CL.st.item) CL.draft[CL.st.item.id] = e.target.value; });
 $app.addEventListener("click", e=>{
   const b = e.target.closest("[data-act^='class']"); if (!b) return;
   const act = b.dataset.act;
   if (act==="classRefresh") classRefresh();
+  else if (act==="classPass"){ CL.showPass = !CL.showPass; renderClass(true); }
   else if (act==="classChoice") classSubmit(b.dataset.l);
   else if (act==="classPick" || act==="classUnpick" || act==="classClear" || act==="classSendOrder"){
     const it = CL.st && CL.st.item; if (!it || it.state!=="open") return;
