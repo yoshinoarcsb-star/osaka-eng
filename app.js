@@ -27,7 +27,7 @@ const SYNC = window.OSAKA_SYNC || {enabled:false, auth:null};
 const LEGACY_KEY = "osaka-eng-v1";
 const storeKey = ()=> SYNC.enabled ? (SYNC.auth ? "osaka-eng-v2_"+SYNC.auth.student.number : null) : LEGACY_KEY;
 function blankStore(){
-  return {user:{id:"local-"+Math.random().toString(36).slice(2,10),name:""},attempts:[],sessions:[],reading:{},vocab:{},settings:{fs:17,theme:"auto",readAll:false,sv:true,keyRead:false},out:{a:[],v:[],e:[]},dead:[]};
+  return {user:{id:"local-"+Math.random().toString(36).slice(2,10),name:""},attempts:[],sessions:[],reading:{},vocab:{},settings:{fs:17,theme:"auto",readAll:false,sv:false,keyRead:false},out:{a:[],v:[],e:[]},dead:[]};
 }
 let KEY = storeKey(), ST;
 function loadStore(prevSettings){
@@ -35,6 +35,7 @@ function loadStore(prevSettings){
   if (KEY){ try { st = JSON.parse(localStorage.getItem(KEY)); } catch(e){ st = null; } }
   ST = Object.assign(blankStore(), st || {});
   ST.settings = Object.assign(blankStore().settings, prevSettings || {}, (st && st.settings) || {});
+  if (!ST.settings.svReset){ ST.settings.sv = false; ST.settings.svReset = true; }   // 主語・動詞の枠は、初期は「なし」にそろえる
   ST.out = Object.assign({a:[],v:[],e:[]}, ST.out || {});
   if (SYNC.enabled && SYNC.auth) ST.user = {id:SYNC.auth.student.number, name:SYNC.auth.student.name};
 }
@@ -181,6 +182,24 @@ function tw(text){
   return out + esc(text.slice(last));
 }
 const chipName = g => String(g.name).replace(/（.*$/,"");
+/* スラッシュ分割：語の手前に「 / 」を入れる。語番号は完成文のもの(dataset/slash)。全体の設定と、文ごとの上書き(SLS)で決まる */
+const SLS = new Map();
+const slOn = sid => SLS.has(sid) ? SLS.get(sid) : !!ST.settings.slash;
+const slashHTML = t => { const m = t.match(/^([\s\S]*?)(\s*)([“"‘(\[']*)$/);
+  return esc(m[1]) + "\u00a0<span class=\"sl\" aria-hidden=\"true\">/</span> " + esc(m[3]); };
+// 完成文の語番号 → 表示中の文の語番号。空所に入る答えの中ほど(同じ空所に当たる語どうしの間)には入れない
+function slashSet(sl, map){
+  const out = new Set();
+  for (const i of sl){
+    if (!map){ out.add(i); continue; }
+    const j = map[i]; if (j==null || (i>0 && map[i-1]===j)) continue; out.add(j);
+  }
+  return out;
+}
+const SVS = new Map();
+const svOn = sid => SVS.has(sid) ? SVS.get(sid) : !!ST.settings.sv;
+const svBtn = (sid, on) => `<button class="slbtn svbtn ${on?"on":""}" data-act="svs" data-sid="${sid}" aria-pressed="${on}" title="主語・動詞の枠を出す・消す">S/V</button>`;
+const slBtn = (sid, on) => `<button class="slbtn ${on?"on":""}" data-act="sl" data-sid="${sid}" aria-pressed="${on}" title="スラッシュ分割（/）を入れる・消す">/</button>`;
 const MTMAP = {};   // 表示中の英文ごとの語番号の対応（null なら完成文と同じ）
 function mt(key, text, o){
   o = o||{};
@@ -226,8 +245,8 @@ function mt(key, text, o){
     if (x.w) h += `<span class="w${gcls(x.i)}" data-i="${x.i}">${esc(x.t)}</span>`;
     else if (x.blank) h += `<span class="blank" data-i="${x.i}">${esc(x.t.slice(1,-1))}</span>`;
     else if (/^\s+$/.test(x.t) && toks[k-1] && toks[k-1].w && toks[k+1] && toks[k+1].w)
-      h += `<span class="gap${gapCls(x.p,x.n)}" data-a="${x.p}" data-b="${x.n}">${esc(x.t)}</span>`;
-    else h += esc(x.t);
+      h += `<span class="gap${gapCls(x.p,x.n)}" data-a="${x.p}" data-b="${x.n}">${o.slash && o.slash.has(x.n) ? slashHTML(x.t) : esc(x.t)}</span>`;
+    else h += o.slash && x.p>=0 && o.slash.has(x.n) ? slashHTML(x.t) : esc(x.t);
   });
   while (stack.length) h += stack.pop().close;
   return `<span class="mt" data-mk="${esc(key)}">${h}</span>`;
@@ -245,7 +264,8 @@ function enHTML(s, useFilled, o){
     if (mk.kind!=="underline" || !mk.target) continue;
     const i = text.indexOf(mk.target); if (i>=0) unders.push({s:i, e:i+mk.target.length, label:mk.label});
   }
-  let h = mt(same? s.id : s.id+"~q", text, {blanks:!filled, unders, map, gram:o.gram, focus:o.focus, sv: ST.settings.sv && o.sv!==false ? s.sv : null});
+  const slash = s.slash && slOn(s.id) ? slashSet(s.slash, map) : null;
+  let h = mt(same? s.id : s.id+"~q", text, {blanks:!filled, unders, map, gram:o.gram, focus:o.focus, slash, sv: svOn(s.id) && o.sv!==false ? s.sv : null});
   if (!filled) for (const mk of s.marks||[]) if (mk.kind==="insert_point") h += ` <span class="blank">${esc(mk.label)}</span>`;
   return h;
 }
@@ -295,8 +315,8 @@ function passageHTML(dai, part, opt){
     for (const g of groups){
       h += `<p>${dialog && g.k? `<span class="speaker">${esc(g.k)}:</span>`:""}`+
            g.ss.map(s=> opt.practice
-             ? `<span class="sw"><span class="s en" data-sid="${s.id}">${enHTML(s, opt.filled)}</span> <button class="trbtn" data-act="tr" data-sid="${s.id}" aria-pressed="false">訳</button><span class="ja trja" data-sid="${s.id}" hidden></span></span>`
-             : `<span class="s en" data-sid="${s.id}">${enHTML(s, opt.filled)}</span>`).join(" ")+`</p>`;
+             ? `<span class="sw"><span class="s en" data-sid="${s.id}" data-f="${opt.filled?1:0}">${enHTML(s, opt.filled)}</span> <button class="trbtn" data-act="tr" data-sid="${s.id}" aria-pressed="false">訳</button>${svBtn(s.id, svOn(s.id))}${s.slash? slBtn(s.id, slOn(s.id)):""}<span class="ja trja" data-sid="${s.id}" hidden></span></span>`
+             : `<span class="s en" data-sid="${s.id}" data-f="${opt.filled?1:0}">${enHTML(s, opt.filled)}</span>${svBtn(s.id, svOn(s.id))}${s.slash? slBtn(s.id, slOn(s.id)):""}`).join(" ")+`</p>`;
     }
   }
   // （注）：原問題に載っている注だけ
@@ -656,6 +676,8 @@ function read(daiId, params){
      <div class="en">${enHTML(s, !R.raw, {gram:gsel, focus:gfocus})}</div>
      ${step>=2 && s.grammar.length? legendHTML(s.grammar.map(g=>gGroup(g.cat)))+`<div class="chips">`+s.grammar.map((g,n)=>`<button class="chip gc${gGroup(g.cat)} ${R.gf===n?"on":""}" data-act="gfocus" data-n="${n}" aria-pressed="${R.gf===n}">${esc(chipName(g))}</button>`).join("")+`</div>`:""}
      ${keyNote}
+     <button class="ghost slbtn svbtn ${svOn(s.id)?"on":""}" data-act="svs" data-sid="${s.id}" aria-pressed="${svOn(s.id)}" style="min-height:32px;padding:2px 8px;font-size:.8rem">主語・動詞の枠</button>
+     ${s.slash? `<button class="ghost slbtn ${slOn(s.id)?"on":""}" data-act="sl" data-sid="${s.id}" aria-pressed="${slOn(s.id)}" style="min-height:32px;padding:2px 8px;font-size:.8rem">スラッシュ /</button> `:""}
      ${s.filled && s.filled!==s.en? `<button class="ghost" data-act="raw" style="min-height:32px;padding:2px 8px;font-size:.8rem">${R.raw? "答えを入れた文にする":"問題の形（空所あり）にする"}</button>`:""}
      <div class="muted">${[s.type,s.structure,s.difficulty? "難易度"+s.difficulty:null].filter(Boolean).map(esc).join("　/　")}</div>
      ${step<1? `<div class="step"><p class="muted">まず自分で意味を考えてみましょう。</p><button class="primary" data-act="step">和訳を見る</button></div>`:
@@ -863,6 +885,7 @@ function markBar(reading){
   const t = (act,on,label)=>`<button data-act="${act}" class="tg ${on?"on":""}" aria-pressed="${on}">${label}</button>`;
   return `<div class="mkbar">`+
     t("svToggle", ST.settings.sv, `<span class="legend s">主語</span><span class="legend v">動詞</span>`)+
+    t("slToggle", ST.settings.slash, `<span class="legend sl">/</span>スラッシュ`)+
     (reading? t("keyToggle", ST.settings.keyRead, `<span class="legend y">解答の根拠</span>`)
              : `<span class="muted"><span class="legend y">黄色</span>＝答えた設問の根拠</span>`)+
     `</div>`;
@@ -941,7 +964,20 @@ $app.addEventListener("click", e=>{
     case "importV1": { const n = importV1(); markImport("done"); alert(n+"件の記録を取り込みました。"); render(); break; }
     case "importLater": importHidden = true; render(); break;
     case "importNever": markImport("never"); render(); break;
-    case "svToggle": ST.settings.sv = !ST.settings.sv; save(); if (SES && /^#\/(solve|practice|set)\//.test(location.hash)) { renderSession(); paintAll(); } else render(); break;
+    case "svs": {
+      const sid = b.dataset.sid, on = !svOn(sid); SVS.set(sid, on);
+      if (location.hash.startsWith("#/read/")){ render(); break; }
+      document.querySelectorAll(`.s.en[data-sid="${sid}"]`).forEach(el=>{ el.innerHTML = enHTML(S[sid], el.dataset.f==="1"); });
+      document.querySelectorAll(`.svbtn[data-sid="${sid}"]`).forEach(x=>{ x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+      paintAll(); break; }
+    case "svToggle": ST.settings.sv = !ST.settings.sv; SVS.clear(); save(); if (SES && /^#\/(solve|practice|set)\//.test(location.hash)) { renderSession(); paintAll(); } else render(); break;
+    case "slToggle": ST.settings.slash = !ST.settings.slash; SLS.clear(); save(); if (SES && /^#\/(solve|practice|set)\//.test(location.hash)) { renderSession(); paintAll(); } else render(); break;
+    case "sl": {
+      const sid = b.dataset.sid, on = !slOn(sid); SLS.set(sid, on);
+      if (location.hash.startsWith("#/read/")){ render(); break; }
+      document.querySelectorAll(`.s.en[data-sid="${sid}"]`).forEach(el=>{ el.innerHTML = enHTML(S[sid], el.dataset.f==="1"); });
+      document.querySelectorAll(`.slbtn[data-sid="${sid}"]`).forEach(x=>{ x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+      paintAll(); break; }
     case "tr": {
       const sid = b.dataset.sid;
       if (SES.trAll){ SES.trAll = false; document.querySelectorAll(".trbtn").forEach(x=>{ SES.tr[x.dataset.sid] = true; }); SES.tr[sid] = false; }

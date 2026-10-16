@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>授業（講師用）</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* 授業の講師画面：本文は学習アプリと同じ表示（style.css を共用）。右にサイドバーで、問題と回答状況を出す */
+html{font-size:var(--fs)}
+body{overflow-x:hidden}
+.tc-top{position:sticky;top:0;z-index:30;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:6px 14px;min-height:52px;flex-wrap:wrap}
+.tc-top .tc-title{font-weight:700;font-size:.95rem;flex:1;min-width:140px}
+.tc-top button{min-height:38px;padding:4px 12px;font-size:.85rem}
+.tc-top .tc-stat{font-size:.85rem;color:var(--muted)}
+.hide{display:none!important}
+#login{max-width:420px;margin:60px auto;padding:0 16px}
+.tc-layout{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:0;align-items:start}
+.tc-layout.nosb{grid-template-columns:minmax(0,1fr) 0}
+.tc-layout.nosb #side{display:none}
+#pane{padding:16px 22px 80px;min-width:0}
+#side{position:sticky;top:53px;height:calc(100vh - 53px);overflow-y:auto;border-left:1px solid var(--line);background:var(--card);padding:0 0 60px}
+@media (max-width:1000px){.tc-layout,.tc-layout.nosb{grid-template-columns:1fr}#side{position:static;height:auto;border-left:0;border-top:1px solid var(--line)}.tc-layout.nosb #side{display:block}}
+.tc-tabs{display:flex;position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);z-index:5}
+.tc-tabs button{flex:1;border:0;border-radius:0;border-bottom:3px solid transparent;background:transparent;min-height:46px;font-size:.88rem;padding:4px 6px}
+.tc-tabs button.on{border-bottom-color:var(--accent);color:var(--accent);font-weight:700}
+.tc-sec{padding:12px 16px;border-bottom:1px solid var(--line)}
+.tc-sec h3{margin:.1em 0 .5em;font-size:.95rem}
+.tc-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+button.tc-sm{min-height:32px;padding:2px 10px;font-size:.82rem}
+button.tc-d{background:var(--ng);color:#fff;border-color:var(--ng)}
+.tc-msg{margin:8px 16px;padding:8px 12px;border-radius:8px;font-size:.85rem;background:var(--ng-soft);color:var(--ng)}
+.tc-msg.ok{background:var(--ok-soft);color:var(--ok)}
+.tc-meta{font-size:.82rem;color:var(--muted)}
+/* 本文 */
+.tc-pass .passage{font-size:1.2rem}
+.tc-pass .passage p{margin:0 0 1em}
+.tc-pass .en{font-size:1em}
+.tc-pass .s.hl{outline:3px solid var(--accent);outline-offset:3px;background:var(--accent-soft)}
+.tc-pass .trja{font-size:.8em}
+.tc-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tc-head h2{margin:0;font-size:1.15rem;flex:1 1 100%}
+.tc-instr{font-size:.9rem;border:1.5px dashed var(--accent);color:var(--accent);border-radius:8px;padding:8px 12px;margin-bottom:12px}
+/* 問題 */
+.tc-q{font-size:1rem;line-height:1.7}
+.tc-q .tc-en{font-family:var(--font-en);color:var(--en);font-weight:600}
+.tc-frame{border-left:4px solid var(--line);padding:4px 12px;margin:8px 0;color:var(--muted);font-family:var(--font-en)}
+.tc-chs{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.tc-ch{position:relative;display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:12px;padding:8px 12px;overflow:hidden;background:var(--card)}
+.tc-ch .fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.22;transition:width .4s}
+.tc-ch>*{position:relative}
+.tc-ch .n{margin-left:auto;font-weight:800;white-space:nowrap}
+.tc-ch.good{border-color:var(--ok);background:var(--ok-soft)}
+.tc-ch.good .fill{background:var(--ok)}
+.tc-counts{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0;font-size:.9rem}
+.tc-counts b{font-size:1.5em}
+.tc-prog{height:10px;background:var(--track);border-radius:99px;overflow:hidden}
+.tc-prog>i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.tc-chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tc-chip{border:1px solid var(--line);border-radius:99px;padding:1px 10px;background:var(--card);font-size:.82rem}
+.tc-chip.good{border-color:var(--ok);background:var(--ok-soft)}
+.tc-essay{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;background:var(--bg);font-size:.85rem}
+.tc-essay .a{font-family:var(--font-en);font-size:1.05em;white-space:pre-wrap;word-break:break-word}
+.tc-essay .g{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.tc-essay .g input{flex:1;min-width:120px;font:inherit;font-size:.85rem;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.tc-essay select{font:inherit;font-size:.85rem;padding:5px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.tc-essay.done{border-color:var(--ok)}
+.tc-models{font-size:.82rem;color:var(--muted);margin:6px 0}
+table.tc-t{width:100%;border-collapse:collapse;font-size:.82rem}
+.tc-t th,.tc-t td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+.tc-t th{color:var(--muted);font-size:.75rem}
+.tc-row{display:flex;gap:8px;align-items:flex-start;border-bottom:1px solid var(--line);padding:8px 0}
+.tc-row .tx{flex:1;font-size:.85rem;min-width:0}
+.tc-tag{display:inline-block;padding:0 8px;border-radius:99px;font-size:.72rem;font-weight:700;background:var(--line)}
+.tc-tag.done{background:var(--ok-soft);color:var(--ok)}
+.tc-plan li{display:flex;gap:6px;align-items:center;padding:3px 0;font-size:.85rem}
+.tc-plan li.used{color:var(--muted);text-decoration:line-through}
+.tc-plan li span{flex:1;min-width:0}
+.tc-side input,.tc-side select{font:inherit;font-size:.85rem;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);max-width:100%}
+#sec{font:inherit;font-size:1.05rem;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.tc-empty{color:var(--muted);text-align:center;padding:50px 16px;font-size:1.05rem}
+.tc-legend{font-size:.8rem;margin-left:auto}
+.gvbtn[hidden],.gvbox[hidden]{display:none}
+.gvbox{display:block;margin:2px 0 12px;padding:8px 12px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;background:var(--bg);font-size:.8em;line-height:1.7;font-family:var(--font-ja,inherit)}
+.gvbox .gv-h{font-weight:700;color:var(--accent);margin:4px 0 2px}
+.gvbox .gv-g{margin:2px 0 6px}.gvbox .gv-span{font-family:var(--font-en);color:var(--en)}
+.gvbox .gv-exp{color:var(--muted)}.gvbox .gv-pos{font-size:.8em;color:var(--muted);margin-left:6px}
+.pk{max-width:900px;margin:0 auto}.pk h2{margin:.2em 0 .6em}
+.pk-sec{margin:14px 0 6px;font-weight:700;color:var(--muted);font-size:.9rem}
+.pk-exams{display:flex;flex-wrap:wrap;gap:8px}
+.pk-exams button{min-height:44px;padding:4px 16px;font-size:1rem}
+.pk-exams button.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+.pk-dai{display:flex;flex-direction:column;gap:8px}
+.pk-dai button{text-align:left;min-height:54px;padding:8px 14px;font-size:1rem;display:flex;gap:12px;align-items:center}
+.pk-dai button .n{font-weight:800;min-width:4.5em}.pk-dai button .m{margin-left:auto;font-size:.82rem;color:var(--muted);white-space:nowrap}
+</style></head><body>
+<header class="tc-top"><span class="tc-title" id="ttl">授業（講師用）</span><span class="tc-stat" id="stat"></span>
+ <span id="campusWrap" class="hide"><select id="campus" style="font:inherit;font-size:.85rem;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"></select></span>
+ <button class="primary hide" id="start">授業を始める</button><button class="tc-d hide" id="end">授業を終える</button>
+ <button class="ghost hide" id="chgDai">大問を変える</button>
+ <button class="ghost hide" id="sbBtn">サイドバー：表示</button>
+ <button class="ghost hide" id="namesBtn">名前：非表示</button>
+ <button class="ghost hide" id="fontDown" title="文字を小さく">A−</button><button class="ghost hide" id="fontUp" title="文字を大きく">A＋</button><button class="ghost hide" id="themeBtn">配色</button>
+ <button class="ghost hide" id="out">ログアウト</button></header>
+
+<section id="login" class="card">
+  <h1>授業（講師用）</h1>
+  <p class="muted">講師または管理者の合言葉を入力してください。合言葉は保存されません。</p>
+  <label for="sec" class="muted">合言葉</label><input id="sec" type="password" autocomplete="off">
+  <div class="row" style="margin-top:12px"><button class="primary" id="go">ログイン</button></div>
+  <div id="lmsg"></div>
+</section>
+
+<div id="app" class="hide">
+  <div id="amsg"></div>
+  <div class="tc-layout" id="layout">
+    <main id="pane"></main>
+    <aside id="side" class="tc-side"></aside>
+  </div>
+</div>
+
+<script src="data/data.js"></script>
+<script src="reading.js"></script>
+<script>
+/* 接続設定（公開用キーのみ。config.js と同じ値） */
+window.OSAKA_CONFIG = { apiUrl: "https://dhzdygqopmnjbggfyxmd.supabase.co/functions/v1/clever-api", apiKey: "sb_publishable_knhDKrqz3P33aPT8curHsA_qTbVhyjU" };
+</script>
+<script>
+const CFG=window.OSAKA_CONFIG||{},D=window.OSAKA_DATA,R=window.Reading;
+const CAMPUS={1:"住道加納校",2:"鴻池駅前校",3:"鶴見徳庵校",4:"都島中通校",5:"寝屋川音羽校",6:"大東三箇校",7:"野崎駅前校",8:"阿倍野校"};
+const ERR={bad_score:"点は0から満点まで、0.5点きざみで入れてください",open:"締め切ったあとに採点できます",not_essay:"この問題は自動で採点されています",bad_plan:"予定の名前と問題を入れてください",forbidden:"合言葉が違うか、一時的にロックされています",bad_campus:"校舎を選んでください",no_session:"授業が始まっていません",unknown_question:"この問題は、授業用に登録されていません。管理コンソールの「授業用データ」で登録してください",not_found:"対象が見つかりません",save_failed:"保存に失敗しました",server_error:"サーバーでエラーが起きました"};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let SEC="",ROLE="",CAMPUS_ID=null,LIVE=null,SHOWNAMES=false,timer=null,busy=false;
+let TAB="now",SB=store.get("tc_sb",true),FS=store.get("tc_fs",20),THEME=store.get("tc_theme","auto");
+let SV=store.get("tc_sv2",false),TRALL=false;const SVS=new Map();R.svOn=sid=>SVS.has(sid)?SVS.get(sid):SV;   // 主語・動詞の枠：全文の設定と文ごとの上書き（初期は「なし」）
+const TR=new Set();   // 訳を開いている文
+let SLALL=store.get("tc_sl",false);const SLS=new Map();R.slOn=sid=>SLS.has(sid)?SLS.get(sid):SLALL;   // スラッシュ分割：全文の設定と、文ごとの上書き
+let GVALL=false;const GV=new Set();   // 文法・語彙を開いている文
+let SEL=null,PICKING=false;   // 授業で開いている大問 {exam,dai}。nullなら選択画面
+const esc=R.esc;
+const CTEXT=new Set(["ja_to_en_fill","qa_write","reference_extract"]),CESSAY=new Set(["conditioned_writing","free_writing"]);
+const KIND_JA={choice:"選択",text:"記述",order:"並べかえ",essay:"英作文"};
+const QS={};
+for(const e of Object.values(D.exams))for(const q of e.questions){
+  let k=null;
+  if(q.answer==="choice"&&q.choices&&q.choices.length&&q.correct&&q.correct.length)k="choice";
+  else if(q.answer==="write"&&q.qtype==="reorder_write"&&q.correct_text&&q.correct_text.trim().split(/\s+/).length>=2&&q.correct_text.trim().split(/\s+/).length<=12)k="order";
+  else if(q.answer==="write"&&CTEXT.has(q.qtype)&&q.correct_text)k="text";
+  else if(q.answer==="write"&&CESSAY.has(q.qtype))k="essay";
+  if(k){q.kind=k;QS[q.id]=q}
+}
+function msg(el,t,ok){el.innerHTML=t?`<div class="tc-msg ${ok?"ok":""}">${esc(t)}</div>`:""}
+function applyLook(){
+  document.documentElement.style.setProperty("--fs",FS+"px");
+  if(THEME==="auto")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",THEME);
+  $("layout").classList.toggle("nosb",!SB);$("sbBtn").textContent="サイドバー："+(SB?"表示":"隠す");
+}
+async function api(body){
+  let r;
+  try{r=await fetch(CFG.apiUrl,{method:"POST",headers:{"Content-Type":"application/json",apikey:CFG.apiKey||"",Authorization:"Bearer "+(CFG.apiKey||"")},body:JSON.stringify({adminSecret:SEC,...body})})}
+  catch(e){throw new Error("サーバーに接続できません")}
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!j)throw new Error("サーバーの応答が正しくありません（HTTP "+r.status+"）");
+  if(j.result!=="success"){const e=new Error(ERR[j.message]||j.message||"エラー");e.code=j.message;throw e}
+  return j;
+}
+/* ---------- ログイン ---------- */
+async function login(){
+  SEC=$("sec").value.trim();msg($("lmsg"),"");
+  if(SEC.length<16){msg($("lmsg"),"合言葉は16文字以上です");return}
+  if(!D||!R){msg($("lmsg"),"問題データ(data/data.js)または reading.js が読み込めません。zipの中の位置のまま（data フォルダ・reading.js と同じ場所で）開いてください。");return}
+  $("go").disabled=true;
+  try{
+    const r=await api({action:"whoami"});ROLE=r.role;CAMPUS_ID=r.campusId;
+    $("login").classList.add("hide");$("app").classList.remove("hide");
+    ["out","namesBtn","sbBtn","chgDai","fontUp","fontDown","themeBtn"].forEach(i=>$(i).classList.remove("hide"));$("sec").value="";
+    $("campus").innerHTML=Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${n}</option>`).join("");
+    if(ROLE==="teacher"){$("campus").value=String(CAMPUS_ID)}else $("campusWrap").classList.remove("hide");
+    $("campus").onchange=()=>{LIVE=null;PLAN=[];TAB="now";SEL=null;PICKING=false;refresh();loadPlans()};
+    fillPicker();refresh();schedule();loadPlans();
+  }catch(e){SEC="";msg($("lmsg"),e.code==="forbidden"?ERR.forbidden:e.message)}finally{$("go").disabled=false}
+}
+$("go").onclick=login;$("sec").onkeydown=e=>{if(e.key==="Enter")login()};
+$("out").onclick=()=>{SEC="";LIVE=null;clearInterval(timer);location.reload()};
+$("namesBtn").onclick=()=>{SHOWNAMES=!SHOWNAMES;$("namesBtn").textContent="名前："+(SHOWNAMES?"表示":"非表示");refresh()};
+$("chgDai").onclick=()=>{SEL=null;PICKING=true;mainSig=sideSig="";render()};
+$("sbBtn").onclick=()=>{SB=!SB;store.set("tc_sb",SB);applyLook()};
+$("fontUp").onclick=()=>{FS=Math.min(30,FS+1);store.set("tc_fs",FS);applyLook()};
+$("fontDown").onclick=()=>{FS=Math.max(14,FS-1);store.set("tc_fs",FS);applyLook()};
+$("themeBtn").onclick=()=>{const o=["auto","light","dark"];THEME=o[(o.indexOf(THEME)+1)%3];store.set("tc_theme",THEME);applyLook()};
+applyLook();
+const cid=()=>+$("campus").value;
+function schedule(){clearInterval(timer);timer=setInterval(()=>{if(document.visibilityState==="visible")refresh(true)},5000)}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&SEC)refresh(true)});
+
+/* ---------- 授業の操作 ---------- */
+async function call(action,extra){
+  if(busy)return null;busy=true;msg($("amsg"),"");
+  try{const r=await api(Object.assign({action,campusId:cid()},extra||{}));if(r.live!==undefined){LIVE=r.live;render()}return r}
+  catch(e){msg($("amsg"),e.message);return null}finally{busy=false}
+}
+async function refresh(quiet){
+  if(busy||!SEC)return;
+  try{const r=await api({action:"classLive",campusId:cid(),names:SHOWNAMES});LIVE=r.live;render();if(!quiet)msg($("amsg"),"")}
+  catch(e){if(!quiet)msg($("amsg"),e.message)}
+}
+$("start").onclick=()=>call("classStart");
+$("end").onclick=async()=>{if(!confirm(CAMPUS[cid()]+"の授業を終えます。よろしいですか？"))return;await call("classEnd");LIVE=null;SEL=null;PICKING=false;await refresh()};
+const itemOf=()=>LIVE&&LIVE.item;
+const act=a=>{const it=itemOf();return it&&call(a,{itemId:it.id,names:SHOWNAMES})};
+
+/* ---------- 表示 ---------- */
+let mainSig="",sideSig="";
+function render(){
+  const live=LIVE&&LIVE.session;
+  $("ttl").textContent="授業（"+CAMPUS[cid()]+"）";
+  $("start").classList.toggle("hide",!!live);$("end").classList.toggle("hide",!live);
+  $("stat").textContent=live?`授業中・参加 ${LIVE.participants}人`:"授業は始まっていません";
+  if(live&&!SEL&&!PICKING){const iq=itemOf()&&QS[itemOf().questionId];if(iq)SEL={exam:R.DAI[iq.dai].exam,dai:iq.dai}}
+  $("chgDai").classList.toggle("hide",!(live&&SEL));
+  if(!live){$("pane").innerHTML=`<div class="tc-empty">授業は始まっていません。右上の「授業を始める」を押してください。</div>`;$("side").innerHTML="";mainSig=sideSig="";return}
+  renderMain();renderSide();
+}
+const revealedSet=()=>new Set(((LIVE&&LIVE.history)||[]).filter(h=>h.state==="revealed").map(h=>h.questionId));
+/* 空所のある文の訳は、関わる設問の正解を公開するまで出さない（訳に答えが入っているため） */
+function trLocked(sid){
+  const s=R.S[sid];if(!s||!(s.marks||[]).some(m=>m.kind==="blank"))return false;
+  const rv=revealedSet();
+  return Object.values(R.Q).some(q=>((q.related||[]).includes(sid)||(q.mark_sids||[]).includes(sid))&&!rv.has(q.id));
+}
+function qBodyHTML(q,it){
+  const st=it.state,key=it.key,correct=st==="revealed"&&key?key.correct||[]:[];
+  const dist=Object.fromEntries((it.dist||[]).map(d=>[d.answer,d.n]));
+  const max=Math.max(1,...Object.values(dist),1);
+  let h=`<div class="tc-meta">第${it.seq}問・${esc(q.format||"")}・${q.points}点・${esc(KIND_JA[it.kind]||"")}</div><div class="tc-q">`;
+  if(q.stem_ja)h+=`<div>${esc(q.stem_ja)}</div>`;
+  if(q.stem_en)h+=`<div class="tc-en">${esc(q.stem_en)}</div>`;
+  if(q.frame)h+=`<div class="tc-frame">${esc(q.frame)}</div>`;
+  if((q.items||[]).length)h+=`<div>${q.items.map(i=>`<div><b>${esc(i.label)}</b> <span class="tc-en">${esc(i.text)}</span></div>`).join("")}</div>`;
+  if(it.kind==="choice")h+=`<div class="tc-chs">`+q.choices.map(([l,t])=>{const n=dist[l]||0,good=correct.includes(l);return `<div class="tc-ch ${good?"good":""}"><div class="fill" style="width:${Math.round(n*100/max)}%"></div><b>${esc(l)}</b><span class="tc-en" style="font-weight:400">${t&&t!==l?esc(t):""}</span><span class="n">${n}人${good?" ○":""}</span></div>`}).join("")+`</div>`;
+  else if(it.kind==="order")h+=`<div class="tc-meta">（語をタップして、正しい順に並べる）</div>`;
+  else if(q.words||q.words_approx)h+=`<div class="tc-meta">（${esc(q.words||q.words_approx)}語で書く）</div>`;
+  if(it.kind==="essay"&&(q.conditions||[]).length)h+=`<ul style="margin:6px 0;padding-left:1.3em">${q.conditions.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>`;
+  return h+`</div>`;
+}
+function statusHTML(q,it){
+  const st=it.state,key=it.key,n=LIVE.participants||0;
+  let h=`<div class="tc-counts"><div>回答 <b>${it.answered}</b> / 参加 <b>${n}</b>人</div>${st!=="open"?(it.kind==="essay"?`<div>採点済み <b>${it.graded??0}</b> / ${it.answered}人</div>`:`<div>正解 <b>${it.right??0}</b>人</div>`):""}<div class="tc-meta" style="align-self:end">${st==="open"?"出題中":st==="closed"?"締め切り":"正解を公開"}</div></div>
+    <div class="tc-prog"><i style="width:${n?Math.min(100,Math.round(it.answered*100/n)):0}%"></i></div>`;
+  if(it.kind==="text"||it.kind==="order"){
+    const show=st!=="open"||SHOWNAMES;
+    h+=show?`<div class="tc-chips">${(it.dist||[]).map(d=>`<span class="tc-chip">${esc(d.answer)} ×${d.n}</span>`).join("")}</div>`:`<div class="tc-meta" style="margin-top:6px">（答えは、締め切ったあとに表示します）</div>`;
+    if(st==="revealed"&&key)h+=`<div class="tc-chip good" style="font-size:.95rem">正解：${esc(key.correct_text)}${(key.variants||[]).length?"　別解："+key.variants.map(esc).join(" / "):""}</div>`;
+  }
+  if(it.kind==="essay"){
+    if(st==="open")h+=`<div class="tc-meta" style="margin-top:6px">（英作文の答えは、締め切ったあとに表示して、採点します）</div>`;
+    else h+=essayHTML(q,it);
+  }
+  if(st==="revealed"&&key&&key.explanation)h+=`<div style="margin-top:10px;font-size:.88rem">${esc(key.explanation)}</div>`;
+  if(SHOWNAMES&&it.who&&it.who.length)h+=`<table class="tc-t" style="margin-top:10px"><thead><tr><th>番号</th><th>名前</th><th>答え</th><th></th></tr></thead><tbody>${it.who.map(w=>`<tr><td>${esc(w.number)}</td><td>${esc(w.name)}</td><td>${esc(w.answer)}</td><td>${w.correct==null?"":w.correct?"○":"×"}</td></tr>`).join("")}</tbody></table>`;
+  return h;
+}
+const GRD={};  // 採点の入力途中の値(answerId→{score,comment})
+function essayHTML(q,it){
+  const pts=+q.points,list=it.essays||[];
+  let h="";
+  const models=[...(q.models||[]),...(q.example&&!(q.models||[]).includes(q.example)?[q.example]:[])];
+  if(models.length)h+=`<div class="tc-models"><b>解答例：</b>${models.map(esc).join(" ／ ")}</div>`;
+  if(!list.length)return h+`<div class="tc-meta">（回答がありません）</div>`;
+  return h+list.map((e,i)=>{
+    const g=GRD[e.id]||{},sc=g.score!==undefined?g.score:(e.score!=null?String(e.score):""),cm=g.comment!==undefined?g.comment:(e.comment||"");
+    const opts=['<option value="">未採点</option>'];for(let v=0;v<=pts;v+=0.5)opts.push(`<option value="${v}" ${String(v)===String(sc)?"selected":""}>${v}点</option>`);
+    const saved=e.score!=null;
+    return `<div class="tc-essay ${saved?"done":""}"><div class="tc-meta">回答${i+1}${SHOWNAMES&&e.name?"・"+esc(e.name):""}${saved?"・採点済み "+e.score+"点":""}</div><div class="a">${esc(e.answer)}</div>
+      <div class="g"><select data-sc="${e.id}">${opts.join("")}</select><input type="text" data-cm="${e.id}" maxlength="200" placeholder="コメント（任意）" value="${esc(cm)}"><button class="tc-sm" data-save="${e.id}">採点を保存</button></div></div>`;
+  }).join("");
+}
+document.addEventListener("input",e=>{
+  const sc=e.target.dataset&&e.target.dataset.sc,cm=e.target.dataset&&e.target.dataset.cm;
+  if(sc)(GRD[sc]=GRD[sc]||{}).score=e.target.value;
+  if(cm)(GRD[cm]=GRD[cm]||{}).comment=e.target.value;
+});
+document.addEventListener("click",async e=>{
+  const id=e.target.dataset&&e.target.dataset.save;if(!id)return;
+  const row=e.target.closest(".tc-essay"),sc=row.querySelector("select").value,cm=row.querySelector("input").value;
+  if(sc===""){msg($("amsg"),"点を選んでください");return}
+  const r=await call("classGrade",{answerId:+id,score:+sc,comment:cm,names:SHOWNAMES});
+  if(r)delete GRD[id];
+});
+
+/* --- 左：年度・大問の選択、本文（長文の問題）、または大きな問題文 --- */
+const examList=()=>Object.values(D.exams).sort((x,y)=>y.year-x.year||x.form.localeCompare(y.form));
+const partHasPass=p=>!!(p&&p.passages.some(x=>x.genre!=="item_set"&&x.sentences.length));
+function pickerScreen(){
+  const pane=$("pane");
+  if(!PICK.exam)PICK.exam=examList()[0].id;
+  const sig="picker|"+PICK.exam+"|"+Object.keys(QS).length;
+  if(mainSig===sig&&pane.dataset.item==="picker")return;
+  mainSig=sig;pane.dataset.item="picker";
+  const e=D.exams[PICK.exam],cnt={};for(const q of Object.values(QS))cnt[q.dai]=(cnt[q.dai]||0)+1;
+  pane.innerHTML=`<div class="pk"><h2>年度と大問を選んでください</h2>
+    <div class="pk-sec">年度・問題</div><div class="pk-exams">${examList().map(x=>`<button data-pkexam="${x.id}" class="${x.id===PICK.exam?"on":""}">${x.year}年度 ${x.form}問題</button>`).join("")}</div>
+    <div class="pk-sec">大問（選ぶと授業画面が開きます）</div><div class="pk-dai">${e.dai.map(d=>`<button data-pkdai="${d.id}"><span class="n">大問${d.no}</span><span>${esc(d.title||"")}</span><span class="m">${partHasPass(R.DAI[d.id].parts.find(partHasPass))?"本文あり・":""}授業用 ${cnt[d.id]||0}問</span></button>`).join("")}</div></div>`;
+  pane.querySelectorAll("[data-pkexam]").forEach(b=>b.onclick=()=>{PICK.exam=b.dataset.pkexam;mainSig="";renderMain()});
+  pane.querySelectorAll("[data-pkdai]").forEach(b=>b.onclick=()=>openDai(b.dataset.pkdai));
+}
+function openDai(daiId){
+  SEL={exam:R.DAI[daiId].exam,dai:daiId};PICK.exam=SEL.exam;PICKING=false;
+  TAB="pick";
+  window.scrollTo(0,0);mainSig=sideSig="";render();
+}
+function renderMain(){
+  const it=itemOf(),pane=$("pane");
+  if(!SEL){pickerScreen();return}
+  const itq=it&&QS[it.questionId],inSel=!!(itq&&itq.dai===SEL.dai),dai=R.DAI[SEL.dai];
+  const q=inSel?itq:null,qq=q&&R.Q[q.id];
+  const part=inSel?(partHasPass(qq.partObj)?qq.partObj:null):dai.parts.find(partHasPass);
+  const hasPass=!!part;
+  const key=SEL.dai+"/"+(inSel?it.id:"-");
+  const sig=JSON.stringify([key,inSel?it.state:0,SV,[...SVS],SLALL,[...SLS],TRALL,[...TR],GVALL,[...GV],revealedSet().size,inSel&&it.kind!=="essay"?it.answered:0,inSel&&it.kind==="choice"?it.dist:0,inSel?it.right:0]);
+  const newItem=pane.dataset.item!==key;
+  if(sig===mainSig&&!newItem)return;
+  mainSig=sig;pane.dataset.item=key;
+  const wy=window.scrollY;
+  const e=D.exams[dai.exam],title=`${e.year}年度 ${e.form}問題 大問${dai.no}　${dai.title||""}`;
+  if(hasPass){
+    R.sv=SV;
+    pane.innerHTML=`<div class="tc-pass"><div class="tc-head"><h2>${esc(title)}</h2>
+      <button class="tc-sm ${SV?"primary":""}" id="bSV">主語・動詞の枠：${SV?"あり":"なし"}</button>
+      <button class="tc-sm ${SLALL?"primary":""}" id="bSL">スラッシュ /：${SLALL?"あり":"なし"}</button>
+      <button class="tc-sm ${TRALL?"primary":""}" id="bTR">訳を${TRALL?"隠す":"出す"}（全文）</button>
+      <button class="tc-sm ${GVALL?"primary":""}" id="bGV">文法・語彙を${GVALL?"隠す":"出す"}（全文）</button>
+      <span class="tc-legend"><span class="legend s">主語</span><span class="legend v">動詞</span><span class="legend y">解答の根拠</span></span></div>
+      ${part.instruction?`<div class="tc-instr">${esc(part.instruction)}</div>`:""}
+      ${R.passageHTML(dai,part,{practice:true})}</div>`;
+    R.setYellow(inSel&&it.state==="revealed"?[q.id]:[]);R.paintAll(pane);
+    if(inSel){const rel=new Set([...(qq.related||[]),...(qq.mark_sids||[])]);pane.querySelectorAll(".s.en").forEach(el=>{if(rel.has(el.dataset.sid))el.classList.add("hl")})}
+    wireTr(pane);
+    if(newItem){const f=pane.querySelector(".s.hl");if(f)setTimeout(()=>f.scrollIntoView({block:"center",behavior:"smooth"}),50);else window.scrollTo(0,0)}
+    else window.scrollTo(0,wy);
+    $("bSV").onclick=()=>{SV=!SV;SVS.clear();store.set("tc_sv2",SV);mainSig="";renderMain()};
+    $("bSL").onclick=()=>{SLALL=!SLALL;SLS.clear();store.set("tc_sl",SLALL);mainSig="";renderMain()};
+    $("bTR").onclick=()=>{TRALL=!TRALL;mainSig="";renderMain()};
+    $("bGV").onclick=()=>{GVALL=!GVALL;mainSig="";renderMain()};
+  }else if(inSel){
+    pane.innerHTML=`<div class="tc-pass" style="font-size:1.35rem"><div class="tc-meta">${esc(title)}</div>${qBodyHTML(q,it)}<div style="margin-top:14px">${statusHTML(q,it)}</div></div>`;
+    if(newItem)window.scrollTo(0,0);
+  }else{
+    pane.innerHTML=`<div class="tc-empty"><b>${esc(title)}</b><br>この大問には、本文がありません。右の「問題を選ぶ」から、出題してください。</div>`;
+  }
+}
+function wireTr(pane){
+  pane.querySelectorAll(".trbtn:not(.gvbtn)").forEach(b=>{
+    const sid=b.dataset.sid,lock=trLocked(sid),on=!lock&&(TRALL||TR.has(sid));
+    b.disabled=lock;b.classList.toggle("on",on);b.classList.toggle("lock",lock);b.setAttribute("aria-pressed",on);
+    b.textContent=on?"訳を閉じる":"訳";b.title=lock?"この文は、関わる設問の正解を公開すると訳が見られます":"";
+    const j=b.parentNode.querySelector(".trja");j.hidden=!on;j.textContent=on?R.S[sid].ja:"";
+    /* 訳が出ている文だけ、文法・語彙のボタンを出す */
+    const gb=b.parentNode.querySelector(".gvbtn"),gx=b.parentNode.querySelector(".gvbox"),gon=on&&(GVALL||GV.has(sid));
+    gb.hidden=!on;gb.classList.toggle("on",gon);gb.setAttribute("aria-pressed",gon);gb.textContent=gon?"文法・語彙を閉じる":"文法・語彙";
+    gx.hidden=!gon;gx.innerHTML=gon?R.gvHTML(sid):"";
+    gb.onclick=ev=>{ev.stopPropagation();if(GVALL){GVALL=false;pane.querySelectorAll(".gvbtn").forEach(x=>{if(!x.hidden)GV.add(x.dataset.sid)});GV.delete(sid)}else if(GV.has(sid))GV.delete(sid);else GV.add(sid);mainSig="";renderMain()};
+    b.onclick=ev=>{ev.stopPropagation();if(lock)return;if(TRALL){TRALL=false;pane.querySelectorAll(".trbtn:not(.gvbtn)").forEach(x=>{if(!trLocked(x.dataset.sid))TR.add(x.dataset.sid)});TR.delete(sid)}else if(TR.has(sid))TR.delete(sid);else TR.add(sid);mainSig="";renderMain()};
+  });
+  pane.querySelectorAll(".svbtn").forEach(b=>{b.onclick=ev=>{ev.stopPropagation();SVS.set(b.dataset.sid,!R.svOn(b.dataset.sid));mainSig="";renderMain()}});
+  pane.querySelectorAll(".slbtn:not(.svbtn)").forEach(b=>{b.onclick=ev=>{ev.stopPropagation();SLS.set(b.dataset.sid,!R.slOn(b.dataset.sid));mainSig="";renderMain()}});
+  pane.querySelectorAll(".s.en").forEach(el=>{el.onclick=()=>el.classList.toggle("hl")});
+}
+
+/* --- 右：サイドバー(出題中／問題を選ぶ／予定／履歴) --- */
+const TABS=[["now","出題中"],["pick","問題を選ぶ"],["plan","予定"],["hist","履歴"]];
+function renderSide(){
+  const side=$("side"),it=itemOf(),q=it&&QS[it.questionId];
+  const focusIn=/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)&&side.contains(document.activeElement);
+  const sig=JSON.stringify([TAB,LIVE,SHOWNAMES,PLAN,PLANS,SEL]);
+  if(sig===sideSig)return;
+  if(focusIn&&side.dataset.tab===TAB&&(TAB!=="now"||(it&&side.dataset.item===String(it.id)&&side.dataset.state===it.state)))return;
+  sideSig=sig;side.dataset.tab=TAB;side.dataset.item=it?String(it.id):"";side.dataset.state=it?it.state:"";
+  const sy=side.scrollTop;
+  let h=`<div class="tc-tabs">${TABS.map(([k,l])=>`<button data-tab="${k}" class="${TAB===k?"on":""}">${l}</button>`).join("")}</div>`;
+  if(TAB==="now")h+=nowHTML(q,it);
+  else if(TAB==="pick")h+=pickHTML();
+  else if(TAB==="plan")h+=planHTML();
+  else h+=histHTML();
+  side.innerHTML=h;side.scrollTop=sy;
+  side.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;sideSig="";renderSide()});
+  if(TAB==="pick")wirePick();if(TAB==="plan")wirePlan();
+  if(TAB==="now"){
+    const c=$("bClose"),r=$("bReveal"),g=$("bGoPick");
+    if(c)c.onclick=()=>act("classClose");if(r)r.onclick=()=>act("classReveal");
+    if(g)g.onclick=()=>{TAB="pick";sideSig="";renderSide()};
+  }
+}
+function nowHTML(q,it){
+  if(!it||!q)return `<div class="tc-sec"><p class="tc-meta">まだ出題していません。「問題を選ぶ」か「予定」から、出題してください。</p><button class="primary" id="bGoPick">問題を選ぶ</button></div>`;
+  const qq=R.Q[q.id],part=qq&&qq.partObj,hasPass=!!(part&&part.passages.some(p=>p.genre!=="item_set"&&p.sentences.length));
+  let b="";
+  if(it.state==="open")b=`<button class="primary" id="bClose">締め切る</button><button id="bReveal">締め切って正解を見せる</button>`;
+  else if(it.state==="closed")b=`<button class="primary" id="bReveal">正解を見せる</button>`;
+  else b=`<button class="primary" id="bGoPick">次の問題を選ぶ</button>`;
+  return `<div class="tc-sec"><div class="tc-bar">${b}</div></div>
+    <div class="tc-sec">${hasPass?qBodyHTML(q,it)+`<div style="margin-top:10px">${statusHTML(q,it)}</div>`:statusHTML(q,it)}</div>`;
+}
+/* 問題の選択(右):左で開いている大問の設問を並べる */
+const PICK={exam:""};
+function fillPicker(){PICK.exam=PICK.exam||examList()[0].id}
+function pickHTML(){
+  if(!SEL)return `<div class="tc-sec"><p class="tc-meta">左の画面で、年度と大問を選ぶと、その大問の設問がここに並びます。</p></div>`;
+  const e=D.exams[SEL.exam],d=R.DAI[SEL.dai];
+  const done=new Set(((LIVE&&LIVE.history)||[]).map(h=>h.questionId));
+  const list=Object.values(QS).filter(q=>q.dai===SEL.dai);
+  return `<div class="tc-sec"><div class="tc-bar"><b>${e.year}年度 ${e.form}問題　大問${d.no}</b><button class="tc-sm ghost" id="pkChange" style="margin-left:auto">大問を変える</button></div><div class="tc-meta">${esc(d.title||"")}</div></div>
+    <div class="tc-sec">${list.length?list.map(q=>`<div class="tc-row"><div class="tx"><span class="tc-tag ${done.has(q.id)?"done":""}">${KIND_JA[q.kind]}${done.has(q.id)?"・出題済み":""}</span> ${esc(q.no||"")} ${esc(q.format||"")}・${q.points}点<div class="tc-meta">${esc((q.stem_ja||q.stem_en||(q.items&&q.items[0]&&q.items[0].text)||"").slice(0,80))}</div></div><button class="tc-sm ghost" data-add="${q.id}">予定に追加</button><button class="tc-sm primary" data-q="${q.id}">出題</button></div>`).join(""):'<p class="tc-meta">この大問に、授業で出せる問題はありません。</p>'}</div>`;
+}
+function wirePick(){
+  const pc=$("pkChange");if(pc)pc.onclick=()=>$("chgDai").click();
+  $("side").querySelectorAll("button[data-add]").forEach(b=>b.onclick=()=>{if(!PLAN.includes(b.dataset.add))PLAN.push(b.dataset.add);sideSig="";renderSide();msg($("amsg"),"予定に追加しました（「予定」タブ）",true);setTimeout(()=>msg($("amsg"),""),1800)});
+  $("side").querySelectorAll("button[data-q]").forEach(b=>b.onclick=()=>push(b.dataset.q));
+}
+async function push(qid){
+  const it=itemOf();
+  if(it&&it.state==="open"&&!confirm("いま出題中の問題を締め切って、次の問題を出します。よろしいですか？"))return;
+  const r=await call("classPush",{questionId:qid,names:SHOWNAMES});
+  if(r){const pq=QS[qid];if(pq){SEL={exam:R.DAI[pq.dai].exam,dai:pq.dai};PICKING=false}TAB="now";mainSig="";sideSig="";render()}
+}
+/* 履歴 */
+function histHTML(){
+  const rows=(LIVE.history||[]).slice().reverse();
+  if(!rows.length)return `<div class="tc-sec"><p class="tc-meta">まだ出題していません。</p></div>`;
+  return `<div class="tc-sec"><table class="tc-t"><thead><tr><th>順</th><th>設問</th><th>状態</th><th>回答</th><th>正解</th></tr></thead><tbody>${rows.map(h=>{const q=QS[h.questionId];return `<tr><td>${h.seq}</td><td>${esc(h.questionId)}${q?`<div class="tc-meta">${esc((q.stem_ja||q.stem_en||"").slice(0,30))}</div>`:""}</td><td>${h.state==="open"?"出題中":h.state==="closed"?"締め切り":"公開済み"}</td><td>${h.answered}</td><td>${h.state==="open"?"—":h.right}</td></tr>`}).join("")}</tbody></table></div>`;
+}
+/* 授業の予定 */
+let PLAN=[],PLANS=[],PLANNAME="";
+const planLabel=id=>{const q=QS[id];return q?`${esc(id)}　${esc(KIND_JA[q.kind])}・${esc((q.stem_ja||q.stem_en||(q.items&&q.items[0]&&q.items[0].text)||"").slice(0,24))}`:esc(id)};
+function planHTML(){
+  const used=new Set(((LIVE&&LIVE.history)||[]).map(h=>h.questionId)),next=PLAN.find(id=>!used.has(id));
+  return `<div class="tc-sec"><p class="tc-meta">授業の前に、出す問題を並べておけます。「問題を選ぶ」で「予定に追加」を押し、名前をつけて保存します。</p>
+    <ol class="tc-plan" style="padding-left:22px;margin:6px 0">${PLAN.length?PLAN.map((id,i)=>`<li class="${used.has(id)?"used":""}"><span>${planLabel(id)}</span><button class="tc-sm ghost" data-up="${i}">↑</button><button class="tc-sm ghost" data-rm="${i}">×</button></li>`).join(""):'<li class="tc-meta">（空です）</li>'}</ol>
+    <div class="tc-bar"><button class="primary" id="planNext" ${next?"":"disabled"}>${next?"予定の次を出題："+esc((QS[next]?KIND_JA[QS[next].kind]:"")+" "+next):"予定の問題は、すべて出題しました"}</button></div></div>
+    <div class="tc-sec"><div class="tc-bar"><input id="planName" placeholder="予定の名前（例：10/20 中3）" maxlength="40" value="${esc(PLANNAME)}"><button class="tc-sm" id="planSave">保存</button><button class="tc-sm ghost" id="planClear">空にする</button></div>
+    <div class="tc-bar"><select id="planSel">${PLANS.map(p=>`<option value="${p.id}">${esc(p.name)}（${p.question_ids.length}問）</option>`).join("")||'<option value="">保存した予定はありません</option>'}</select><button class="tc-sm ghost" id="planLoad">読み込む</button><button class="tc-sm ghost" id="planDel">削除</button></div><div id="planMsg"></div></div>`;
+}
+async function loadPlans(){
+  try{const r=await api({action:"classPlans",campusId:cid()});PLANS=r.plans;sideSig="";if(LIVE&&LIVE.session)renderSide()}catch(e){}
+}
+function wirePlan(){
+  const s=$("side");
+  $("planName").oninput=()=>{PLANNAME=$("planName").value};
+  s.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{PLAN.splice(+b.dataset.rm,1);sideSig="";renderSide()});
+  s.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){[PLAN[i-1],PLAN[i]]=[PLAN[i],PLAN[i-1]];sideSig="";renderSide()}});
+  $("planSave").onclick=async()=>{
+    const name=$("planName").value.trim();
+    if(!name||!PLAN.length){msg($("planMsg"),"予定の名前を入れて、問題を1つ以上追加してください");return}
+    try{await api({action:"classSavePlan",campusId:cid(),name,questionIds:PLAN});await loadPlans();msg($("planMsg"),"保存しました",true)}catch(e){msg($("planMsg"),e.message)}
+  };
+  $("planClear").onclick=()=>{PLAN=[];sideSig="";renderSide()};
+  $("planLoad").onclick=()=>{const p=PLANS.find(x=>String(x.id)===$("planSel").value);if(p){PLAN=p.question_ids.slice();PLANNAME=p.name;sideSig="";renderSide()}};
+  $("planDel").onclick=async()=>{
+    const p=PLANS.find(x=>String(x.id)===$("planSel").value);if(!p||!confirm(`予定「${p.name}」を削除します。`))return;
+    try{await api({action:"classDeletePlan",campusId:cid(),id:p.id});await loadPlans()}catch(e){msg($("planMsg"),e.message)}
+  };
+  $("planNext").onclick=()=>{const used=new Set(((LIVE&&LIVE.history)||[]).map(h=>h.questionId)),next=PLAN.find(id=>!used.has(id));if(next)push(next)};
+}
+</script>
+</body></html>

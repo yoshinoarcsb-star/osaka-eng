@@ -57,6 +57,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </section>
 
 <section id="app" class="hide">
+  <div id="bkBanner" class="hide" style="background:var(--ngb);color:var(--ng);border:1px solid var(--ng);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:700"></div>
   <nav id="tabs"></nav>
 
   <div id="p-students" class="box">
@@ -118,6 +119,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
     <div class="tw"><table><thead><tr><th>ID</th><th>対象</th><th>期間</th><th>状態</th><th>メモ</th><th></th></tr></thead><tbody id="lktb"></tbody></table></div>
   </div>
 
+  <div id="p-cdata" class="box hide">
+    <h2>授業用の問題データ</h2>
+    <p class="m">授業モードで出せる問題を、サーバーに登録します。問題文・選択肢と、正答・別解・解説を、サーバーの中で別々に持ちます（正答は、正解を公開するまで生徒の端末に渡りません）。問題データを更新したときも、もう一度押してください。</p>
+    <div class="bar"><button id="cimport">授業用の問題を登録・更新する</button><button class="s sm" id="cstats">登録数を確認</button></div>
+    <div id="cmsg"></div>
+  </div>
+
   <div id="p-log" class="box hide">
     <h2>操作ログ</h2>
     <div class="bar"><button class="s sm" id="logreload">更新</button><span class="m">新しい順に最大200件</span></div>
@@ -126,8 +134,10 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 
   <div id="p-exp" class="box hide">
     <h2>書き出し（バックアップ）</h2>
-    <p class="m">無料プランは自動バックアップがないため、週に1回の保存をおすすめします。CSVで保存します。合言葉やトークンは含まれません。</p>
-    <div class="bar" id="expbtns"></div>
+    <p class="m">無料プランは自動バックアップがないため、月に1回（月末の週）の保存をおすすめします。CSVで保存します。合言葉やトークンは含まれません。</p>
+    <div class="bar"><button id="expall">まとめて保存（すべてのCSV）</button><span class="m" id="bkLast"></span></div>
+    <p class="m">「まとめて保存」を押すと、複数のCSVが続けてダウンロードされます。ブラウザに「複数のファイルのダウンロード」の確認が出たら、許可してください。保存した日は記録され、月末のお知らせが消えます。</p>
+    <details><summary class="m">1つずつ保存する</summary><div class="bar" id="expbtns"></div></details>
     <div id="expmsg"></div>
   </div>
 </section>
@@ -135,6 +145,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 
 <dialog id="dlg"><div id="dbody"></div><div class="row" id="dbtn"></div></dialog>
 
+<script src="data/data.js"></script>
 <script>
 /* 接続設定（公開用キーのみ。config.js と同じ値） */
 window.OSAKA_CONFIG = { apiUrl: "https://dhzdygqopmnjbggfyxmd.supabase.co/functions/v1/clever-api", apiKey: "sb_publishable_knhDKrqz3P33aPT8curHsA_qTbVhyjU" };
@@ -142,7 +153,7 @@ window.OSAKA_CONFIG = { apiUrl: "https://dhzdygqopmnjbggfyxmd.supabase.co/functi
 <script>
 const CFG=window.OSAKA_CONFIG||{};
 const CAMPUS={1:"住道加納校",2:"鴻池駅前校",3:"鶴見徳庵校",4:"都島中通校",5:"寝屋川音羽校",6:"大東三箇校",7:"野崎駅前校",8:"阿倍野校"};
-const ERR={forbidden:"この操作はできません（合言葉の違い、または一時的なロックの可能性があります）",not_found:"対象が見つかりません",bad_student:"番号か氏名の形式が正しくありません",bad_size:"件数が多すぎます（500人まで）",bad_campus:"校舎が正しくありません",save_failed:"保存に失敗しました",server_error:"サーバーでエラーが起きました",invalid_json:"送信内容が正しくありません",failed:"取得に失敗しました",bad_lock:"対象の指定が正しくありません",bad_period:"期間が正しくありません（終了は開始より後に）"};
+const ERR={forbidden:"この操作はできません（合言葉の違い、または一時的なロックの可能性があります）",not_found:"対象が見つかりません",bad_student:"番号か氏名の形式が正しくありません",bad_size:"件数が多すぎます（500人まで）",bad_campus:"校舎が正しくありません",save_failed:"保存に失敗しました",server_error:"サーバーでエラーが起きました",invalid_json:"送信内容が正しくありません",failed:"取得に失敗しました",bad_lock:"対象の指定が正しくありません",bad_question:"問題データの形が正しくありません",bad_period:"期間が正しくありません（終了は開始より後に）"};
 const $=id=>document.getElementById(id);
 let SEC="",ROLE="",MY_CAMPUS=null,STU=[];
 
@@ -199,7 +210,7 @@ $("out").onclick=()=>{SEC="";ROLE="";STU=[];$("sec").value="";$("app").classList
 function start(){
   $("login").classList.add("hide");$("app").classList.remove("hide");$("out").classList.remove("hide");$("sec").value="";
   let tabs=[["students","生徒"],["report","学習状況"],["lock","ロック"]];
-  if(ROLE==="admin")tabs.push(["add","一括登録"],["staff","講師用の合言葉"],["log","操作ログ"],["exp","書き出し"]);
+  if(ROLE==="admin")tabs.push(["add","一括登録"],["cdata","授業用データ"],["staff","講師用の合言葉"],["log","操作ログ"],["exp","書き出し"]);
   $("tabs").innerHTML="";
   tabs.forEach(([k,l])=>{const b=document.createElement("button");b.textContent=l;b.dataset.k=k;b.onclick=()=>tab(k);$("tabs").append(b)});
   const fc=$("fc");fc.innerHTML='<option value="">全校舎</option>'+Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${n}</option>`).join("");
@@ -207,12 +218,12 @@ function start(){
   $("sc").innerHTML=Object.entries(CAMPUS).map(([i,n])=>`<option value="${i}">${i} ${n}</option>`).join("");
   if(ROLE==="teacher"){const c=STU[0]?.campusId;MY_CAMPUS=c||null;if(c){fc.innerHTML=`<option value="${c}">${CAMPUS[c]}</option>`;fc.disabled=true;rc.innerHTML=fc.innerHTML;rc.disabled=true}$("lockform").classList.add("hide");$("who").textContent="講師"+(c?"（"+CAMPUS[c]+"）":"")}
   else $("who").textContent="管理者";
-  tab("students");renderStudents();
+  tab("students");renderStudents();bkCheck();
 }
 function tab(k){
-  ["students","report","lock","add","staff","log","exp"].forEach(x=>$("p-"+x).classList.toggle("hide",x!==k));
+  ["students","report","lock","add","cdata","staff","log","exp"].forEach(x=>$("p-"+x).classList.toggle("hide",x!==k));
   [...$("tabs").children].forEach(b=>b.classList.toggle("on",b.dataset.k===k));
-  if(k==="report")loadReport();if(k==="lock")loadLocks();if(k==="staff")loadStaff();if(k==="log")loadLog();if(k==="exp")expUI();
+  if(k==="report")loadReport();if(k==="lock")loadLocks();if(k==="staff")loadStaff();if(k==="log")loadLog();if(k==="exp"){expUI();bkCheck()}if(k==="cdata")classStats();
 }
 
 /* ---------- 生徒一覧 ---------- */
@@ -412,6 +423,58 @@ $("lsave").onclick=async()=>{
     $("lnote").value="";msg($("lmsg2"),"ロックを設定しました",true);loadLocks()}catch(e){msg($("lmsg2"),e.message)}
 };
 
+
+/* ---------- 授業用の問題データ(段階4) ---------- */
+const CTEXT=new Set(["ja_to_en_fill","qa_write","reference_extract"]);
+const CESSAY=new Set(["conditioned_writing","free_writing"]);
+function seedShuffle(arr,seed){ // 同じ問題は、いつも同じ並びになる
+  let h=2166136261;for(const c of seed){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0}
+  const rnd=()=>{h=(Math.imul(h,1664525)+1013904223)>>>0;return h/4294967296};
+  const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;
+}
+function orderTiles(q){
+  const ans=q.correct_text.trim().split(/\s+/);
+  const g=q.words_given;
+  const same=g&&g.length===ans.length&&[...g].map(x=>x.toLowerCase()).sort().join("|")===[...ans].map(x=>x.toLowerCase()).sort().join("|");
+  const base=same?g.slice():ans.slice();
+  let t=seedShuffle(base,q.id),k=0;
+  while(t.join(" ")===ans.join(" ")&&k++<5)t=seedShuffle(t,q.id+k);
+  return t;
+}
+function classQuestions(){
+  const D=window.OSAKA_DATA;if(!D)return null;const out=[];
+  for(const e of Object.values(D.exams))for(const q of e.questions){
+    let kind=null;
+    if(q.answer==="choice"&&q.choices&&q.choices.length&&q.correct&&q.correct.length)kind="choice";
+    else if(q.answer==="write"&&q.qtype==="reorder_write"&&q.correct_text&&q.correct_text.trim().split(/\s+/).length>=2&&q.correct_text.trim().split(/\s+/).length<=12)kind="order";
+    else if(q.answer==="write"&&CTEXT.has(q.qtype)&&q.correct_text)kind="text";
+    else if(q.answer==="write"&&CESSAY.has(q.qtype))kind="essay";
+    if(!kind)continue;
+    const pub={format:q.format,stem_ja:q.stem_ja,stem_en:q.stem_en,frame:q.frame,items:(q.items||[]).map(i=>({label:i.label,text:i.text})),words:q.words||q.words_approx,choices:q.choices||[]};
+    if(kind==="order")pub.tiles=orderTiles(q);
+    if(kind==="essay")pub.conditions=q.conditions||[];
+    const key=kind==="essay"?{models:q.models||[],example:q.example||"",explanation:q.explanation||""}
+      :{correct:q.correct||[],correct_text:q.correct_text,variants:q.variants||[],explanation:q.explanation||""};
+    out.push({question_id:q.id,kind,exam_id:e.id,section_id:q.dai,qtype:q.qtype,grammar_codes:q.grammar_codes||[],points:q.points,pub,key});
+  }
+  return out;
+}
+async function classStats(){
+  try{const r=await api({action:"classStats"});msg($("cmsg"),`登録済み：選択 ${r.choice}問、記述 ${r.text}問、並べかえ ${r.order||0}問、英作文 ${r.essay||0}問`,true)}catch(e){msg($("cmsg"),e.message+"（段階4のSQLと窓口の反映が済んでいるか確認してください）")}
+}
+$("cstats").onclick=classStats;
+$("cimport").onclick=async()=>{
+  const list=classQuestions();
+  if(!list){msg($("cmsg"),"問題データ(data/data.js)が読み込めません。admin.html を、zipの中の位置のまま（data フォルダと同じ場所で）開いてください。");return}
+  if(!await confirmBox(`授業用の問題 ${list.length}問（選択 ${list.filter(q=>q.kind==="choice").length}・記述 ${list.filter(q=>q.kind==="text").length}・並べかえ ${list.filter(q=>q.kind==="order").length}・英作文 ${list.filter(q=>q.kind==="essay").length}）を登録・更新します。`))return;
+  $("cimport").disabled=true;
+  try{
+    let n=0;
+    for(let i=0;i<list.length;i+=50){const r=await api({action:"importClassQuestions",questions:list.slice(i,i+50)});n+=r.saved;msg($("cmsg"),`${n}/${list.length}問を登録しています…`,true)}
+    msg($("cmsg"),`${n}問を登録しました`,true);
+  }catch(e){msg($("cmsg"),e.message)}finally{$("cimport").disabled=false}
+};
+
 /* ---------- 講師用の合言葉 ---------- */
 async function loadStaff(){
   msg($("stmsg"),"");
@@ -445,21 +508,49 @@ $("logreload").onclick=loadLog;
 const stamp=()=>{const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)};
 const cell=v=>{let s=v==null?"":typeof v==="object"?JSON.stringify(v):String(v);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
 function download(name,text){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+text],{type:"text/csv;charset=utf-8"}));a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
-const EXP=[["students","生徒"],["attempts","解答"],["translation_views","和訳の閲覧"],["usage_events","利用履歴"]];
+const EXP=[["students","生徒"],["attempts","解答"],["translation_views","和訳の閲覧"],["usage_events","利用履歴"],["class_sessions","授業"],["class_items","授業の出題"],["class_answers","授業の解答・採点"],["class_plans","授業の予定"],["locks","ロック設定"]];
 function expUI(){
   const b=$("expbtns");if(b.children.length)return;
   EXP.forEach(([t,l])=>{const x=document.createElement("button");x.className="s";x.textContent=l+"のCSV";x.onclick=()=>doExport(t,l,x);b.append(x)});
 }
-async function doExport(table,label,btn){
-  btn.disabled=true;msg($("expmsg"),"");
+async function doExport(table,label,btn,quiet){
+  if(btn)btn.disabled=true;if(!quiet)msg($("expmsg"),"");
   try{
     let rows=[],off=0;
     for(;;){const r=await api({action:"exportAll",table,offset:off,limit:5000});rows=rows.concat(r.rows);msg($("expmsg"),`${label}：${rows.length}件を取得中…`,true);if(r.next==null)break;off=r.next}
-    if(!rows.length){msg($("expmsg"),`${label}：データがありません`,true);return}
+    if(!rows.length){msg($("expmsg"),`${label}：データがありません`,true);return 0}
     const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
     download(`${table}_${stamp()}.csv`,[cols.map(cell).join(","),...rows.map(r=>cols.map(c=>cell(r[c])).join(","))].join("\r\n"));
     msg($("expmsg"),`${label}：${rows.length}件を保存しました`,true);
-  }catch(e){msg($("expmsg"),e.message)}finally{btn.disabled=false}
+    return rows.length;
+  }catch(e){msg($("expmsg"),e.message);throw e}finally{if(btn)btn.disabled=false}
+}
+$("expall").onclick=async()=>{
+  const btn=$("expall");btn.disabled=true;const done=[];
+  try{
+    for(const [t,l] of EXP){const n=await doExport(t,l,null,true);done.push(`${l} ${n||0}件`);await new Promise(r=>setTimeout(r,400))}
+    await api({action:"backupDone"});
+    msg($("expmsg"),"すべて保存しました："+done.join("、"),true);
+    await bkCheck();
+  }catch(e){msg($("expmsg"),"途中で止まりました（"+e.message+"）。もう一度「まとめて保存」を押してください。")}
+  finally{btn.disabled=false}
+};
+/* ---------- 月末の保存のお知らせ ---------- */
+const jst=()=>new Date(Date.now()+9*3600e3);
+async function bkCheck(){
+  if(ROLE!=="admin")return;
+  let last=null;
+  try{last=(await api({action:"backupStatus"})).lastBackupAt}catch(e){return}
+  const d=jst(),ym=d.toISOString().slice(0,7),dim=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
+  const lastYm=last?new Date(new Date(last).getTime()+9*3600e3).toISOString().slice(0,7):null;
+  const days=last?Math.floor((Date.now()-new Date(last))/864e5):null;
+  $("bkLast").textContent=last?`最後の保存：${new Date(new Date(last).getTime()+9*3600e3).toISOString().slice(0,10)}（${days}日前）`:"まだ保存していません";
+  const lastWeek=d.getUTCDate()>dim-7,thisMonthDone=lastYm===ym;
+  const b=$("bkBanner");
+  if((lastWeek&&!thisMonthDone)||(days!==null&&days>35)||(last===null&&lastWeek)){
+    b.innerHTML=`📌 ${lastWeek?"月末です。":""}今月のバックアップがまだです。「書き出し」タブの「まとめて保存」を押してください。<button class="sm" id="bkGo" style="margin-left:8px">書き出しを開く</button>`;
+    b.classList.remove("hide");$("bkGo").onclick=()=>tab("exp");
+  }else b.classList.add("hide");
 }
 </script>
 </body></html>

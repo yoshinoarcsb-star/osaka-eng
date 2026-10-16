@@ -258,3 +258,10 @@ div.cbtn{cursor:default}
 .otile{font-size:18px;padding:10px 16px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer}
 .otile.on{border-color:var(--accent,#2f6f9f);background:var(--accent-soft,#e6f0f8)}
 .otile:disabled{opacity:.35;cursor:default}
+
+/* スラッシュ分割（/）：語のあいだに入れる区切り。枠や下線の外側に出る */
+.mt .sl{color:var(--accent);font-weight:700;margin:0 .05em}
+.legend.sl{border:2px solid var(--accent);color:var(--accent);font-weight:700;padding:0 7px}
+.slbtn{min-height:28px;min-width:28px;padding:0 8px;font-size:.78rem;font-weight:700;margin:0 2px;vertical-align:baseline;opacity:.7;color:var(--accent)}
+.slbtn.on{border-color:var(--accent);background:var(--accent-soft);opacity:1}
+.svbtn{color:var(--sv-v)}.svbtn.on{border-color:var(--sv-v);background:transparent}
